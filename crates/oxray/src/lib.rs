@@ -2,6 +2,18 @@
 
 #![forbid(unsafe_code)]
 
+mod api;
+mod capture;
+mod guard;
+mod layer;
+mod oxray;
+mod redact;
+mod store;
+
+pub use capture::{BodyEncoding, Capture, CapturePage, CaptureSummary, Header};
+pub use layer::OxrayLayer;
+pub use oxray::{Error, Mode, Oxray, OxrayBuilder};
+
 use std::time::Duration;
 
 /// Formats a duration for the interface (`74 µs`, `1.2 ms`, `812 ms`, `1.24 s`, `1 min 4 s`).

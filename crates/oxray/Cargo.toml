@@ -10,3 +10,29 @@ license.workspace = true
 
 [lints]
 workspace = true
+
+[features]
+__fault-injection = []
+
+[dependencies]
+axum = "0.8"
+bytes = "1.12.1"
+futures-util = "0.3.34"
+http = "1.5.0"
+http-body = "1.1.0"
+http-body-util = "0.1.5"
+percent-encoding = "2.3.2"
+pin-project-lite = "0.2.17"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+thiserror = "2.0.21"
+time = { version = "0.3.55", features = ["formatting"] }
+tower-layer = "0.3.3"
+tower-service = "0.3.3"
+tracing = "0.1.44"
+uuid = { version = "1.26.1", features = ["v7"] }
+
+[dev-dependencies]
+proptest = "1.12.0"
+tokio = { version = "1.54.1", features = ["full", "macros", "rt-multi-thread", "test-util"] }
+tower = { version = "0.5.3", features = ["util"] }

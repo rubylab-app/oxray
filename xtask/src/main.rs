@@ -151,7 +151,9 @@ fn run_validation(root: &Path, harness: &Harness, name: &str) -> Result<()> {
         "v14" => docs(root),
         "v15" => dependencies(root),
         "v16" => hygiene::check(root),
-        "v5" | "v17" | "v18" | "v19" => bail!("{name} is active but has no runner"),
+        "v5" => release_guard(root),
+        "v18" => redaction_e2e(root),
+        "v17" | "v19" => bail!("{name} is active but has no runner"),
         other => bail!("unknown validation {other}"),
     }
 }
@@ -188,6 +190,51 @@ fn test_rust(root: &Path) -> Result<()> {
         bail!("oxray listed zero tests");
     }
     Ok(())
+}
+
+fn release_guard(root: &Path) -> Result<()> {
+    cargo(
+        root,
+        &[
+            "test",
+            "-p",
+            "oxray",
+            "--release",
+            "--test",
+            "release_guard",
+        ],
+    )?;
+    let listed = output(
+        root,
+        "cargo",
+        &[
+            "test",
+            "-p",
+            "oxray",
+            "--release",
+            "--test",
+            "release_guard",
+            "--",
+            "--list",
+        ],
+    )?;
+    let cases = listed
+        .lines()
+        .filter(|line| line.contains(": test"))
+        .count();
+    if cases == 0 {
+        bail!("release_guard listed zero tests");
+    }
+    Ok(())
+}
+
+fn redaction_e2e(root: &Path) -> Result<()> {
+    let path = root.join("crates/oxray/tests/mandatory/redaction_e2e.rs");
+    let text = fs::read_to_string(&path).with_context(|| format!("missing {}", path.display()))?;
+    if !text.contains("#[test]") && !text.contains("#[tokio::test]") {
+        bail!("redaction_e2e has no tests");
+    }
+    cargo(root, &["test", "-p", "oxray", "--test", "redaction_e2e"])
 }
 
 fn vitest(root: &Path) -> Result<()> {
@@ -299,7 +346,10 @@ fn assert_active_tests(root: &Path, harness: &Harness) -> Result<()> {
         let path = root.join(&test.path);
         let text =
             fs::read_to_string(&path).with_context(|| format!("missing mandatory test {name}"))?;
-        let has_case = text.contains("#[test]") || text.contains("test(") || text.contains("it(");
+        let has_case = text.contains("#[test]")
+            || text.contains("#[tokio::test]")
+            || text.contains("test(")
+            || text.contains("it(");
         if !has_case {
             bail!("mandatory test {name} has no cases");
         }

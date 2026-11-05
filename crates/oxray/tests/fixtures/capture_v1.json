@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "id": "0193f2c4-7a1e-7c3d-9f42-6b1d2e8a51c7",
+  "short_id": "2e8a51c7",
+  "started_at": "2026-11-04T21:14:03.412Z",
+  "duration_us": 812345,
+  "method": "POST",
+  "path": "/webhooks/acme",
+  "query": "token=%5Bredacted%5D",
+  "matched_path": "/webhooks/{psp}",
+  "status": 500,
+  "mode": "dev",
+  "request": {
+    "headers": [{ "name": "content-type", "value": "application/json" }],
+    "body": {
+      "content_type": "application/json",
+      "size_bytes": 42,
+      "captured_bytes": 42,
+      "encoding": "utf8",
+      "text": "{\"password\":\"[redacted]\"}",
+      "truncated": false,
+      "omitted_reason": null
+    }
+  },
+  "response": {
+    "headers": [{ "name": "content-type", "value": "text/plain" }],
+    "body": {
+      "content_type": "text/plain",
+      "size_bytes": 2,
+      "captured_bytes": 2,
+      "encoding": "utf8",
+      "text": "ok",
+      "truncated": false,
+      "omitted_reason": null
+    }
+  },
+  "logs": [
+    {
+      "offset_us": 10,
+      "level": "INFO",
+      "target": "app",
+      "message": "received",
+      "fields": { "token": "[redacted]" }
+    }
+  ],
+  "queries": [
+    {
+      "offset_us": 20,
+      "duration_us": 30,
+      "sql": "select 1",
+      "fingerprint": "select ?",
+      "rows_affected": null,
+      "rows_returned": 1
+    }
+  ],
+  "outgoing": [
+    {
+      "offset_us": 40,
+      "duration_us": 50,
+      "method": "POST",
+      "url": "http://127.0.0.1/charge",
+      "status": 502,
+      "request": {
+        "headers": [{ "name": "authorization", "value": "[redacted]" }],
+        "body": {
+          "content_type": "application/json",
+          "size_bytes": 2,
+          "captured_bytes": 2,
+          "encoding": "utf8",
+          "text": "{}",
+          "truncated": false,
+          "omitted_reason": null
+        }
+      },
+      "response": {
+        "headers": [],
+        "body": {
+          "content_type": "text/plain",
+          "size_bytes": 3,
+          "captured_bytes": 3,
+          "encoding": "utf8",
+          "text": "bad",
+          "truncated": false,
+          "omitted_reason": null
+        }
+      },
+      "error": null
+    }
+  ],
+  "errors": [
+    {
+      "offset_us": 60,
+      "kind": "panic",
+      "message": "boom",
+      "target": null,
+      "location": "app.rs:10",
+      "backtrace": [{ "function": "app::boom", "file": "app.rs", "line": 10, "user": true }]
+    }
+  ],
+  "n_plus_one": [{ "fingerprint": "select ?", "count": 14, "sql": "select 1" }],
+  "redactions": [{ "path": "/request/body/password", "rule": "sensitive_key" }],
+  "flags": {
+    "has_error": true,
+    "panicked": true,
+    "truncated_request": false,
+    "truncated_response": false,
+    "streaming": false,
+    "dropped_events": 0
+  }
+}
