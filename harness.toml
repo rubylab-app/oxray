@@ -1,0 +1,406 @@
+milestone = "M0"
+
+[validations.v1]
+since = "M0"
+[validations.v2]
+since = "M0"
+[validations.v3]
+since = "M0"
+[validations.v4]
+since = "M0"
+[validations.v5]
+since = "M1"
+[validations.v6]
+since = "M0"
+[validations.v7]
+since = "M0"
+[validations.v8]
+since = "M0"
+[validations.v9]
+since = "M0"
+[validations.v10]
+since = "M0"
+[validations.v11]
+since = "M0"
+[validations.v12]
+since = "M0"
+[validations.v13]
+since = "M0"
+[validations.v14]
+since = "M0"
+[validations.v15]
+since = "M0"
+[validations.v16]
+since = "M0"
+[validations.v17]
+since = "M4"
+[validations.v18]
+since = "M1"
+[validations.v19]
+since = "M3a"
+
+[mandatory_tests.behavior_identity]
+since = "M1"
+path = "crates/oxray/tests/mandatory/behavior_identity.rs"
+[mandatory_tests.never_crashes_app]
+since = "M1"
+path = "crates/oxray/tests/mandatory/never_crashes_app.rs"
+[mandatory_tests.panic_is_rethrown]
+since = "M1"
+path = "crates/oxray/tests/mandatory/panic_is_rethrown.rs"
+[mandatory_tests.redaction_corpus]
+since = "M1"
+path = "crates/oxray/tests/mandatory/redaction_corpus.rs"
+[mandatory_tests.release_guard]
+since = "M1"
+path = "crates/oxray/tests/mandatory/release_guard.rs"
+[mandatory_tests.memory_bounded]
+since = "M1"
+path = "crates/oxray/tests/mandatory/memory_bounded.rs"
+[mandatory_tests.does_not_capture_itself]
+since = "M1"
+path = "crates/oxray/tests/mandatory/does_not_capture_itself.rs"
+[mandatory_tests.dev_guard_rejects_proxied_and_rebinding]
+since = "M1"
+path = "crates/oxray/tests/mandatory/dev_guard_rejects_proxied_and_rebinding.rs"
+[mandatory_tests.staging_requires_authorize]
+since = "M7"
+path = "crates/oxray/tests/mandatory/staging_requires_authorize.rs"
+[mandatory_tests.ui_no_external_requests]
+since = "M0"
+path = "ui/tests/mandatory/no-external-requests.spec.ts"
+
+[thresholds]
+screenshot_threshold = 0.1
+screenshot_max_diff_pixels = 100
+bundle_js_css_gzip_max_bytes = 153600
+bundle_woff2_max_bytes = 153600
+
+[[contrast.pairs]]
+name = "text-on-bg"
+kind = "text"
+fg = "text"
+bg = "bg"
+min = 4.5
+[[contrast.pairs]]
+name = "text-on-surface"
+kind = "text"
+fg = "text"
+bg = "surface"
+min = 4.5
+[[contrast.pairs]]
+name = "text-2-on-bg"
+kind = "text"
+fg = "text-2"
+bg = "bg"
+min = 4.5
+[[contrast.pairs]]
+name = "text-2-on-surface"
+kind = "text"
+fg = "text-2"
+bg = "surface"
+min = 4.5
+[[contrast.pairs]]
+name = "text-2-on-row-hover"
+kind = "text"
+fg = "text-2"
+bg = "row-hover"
+min = 4.5
+[[contrast.pairs]]
+name = "text-2-on-row-selected"
+kind = "text"
+fg = "text-2"
+bg = "row-selected"
+min = 4.5
+[[contrast.pairs]]
+name = "text-3-on-bg"
+kind = "text"
+fg = "text-3"
+bg = "bg"
+min = 4.5
+[[contrast.pairs]]
+name = "text-3-on-surface"
+kind = "text"
+fg = "text-3"
+bg = "surface"
+min = 4.5
+[[contrast.pairs]]
+name = "text-3-on-raised"
+kind = "text"
+fg = "text-3"
+bg = "raised"
+min = 4.5
+[[contrast.pairs]]
+name = "text-3-on-row-hover"
+kind = "text"
+fg = "text-3"
+bg = "row-hover"
+min = 4.5
+[[contrast.pairs]]
+name = "text-3-on-row-selected"
+kind = "text"
+fg = "text-3"
+bg = "row-selected"
+min = 4.5
+[[contrast.pairs]]
+name = "accent-on-bg"
+kind = "text"
+fg = "accent"
+bg = "bg"
+min = 4.5
+[[contrast.pairs]]
+name = "accent-on-surface"
+kind = "text"
+fg = "accent"
+bg = "surface"
+min = 4.5
+[[contrast.pairs]]
+name = "warn-on-bg"
+kind = "text"
+fg = "warn"
+bg = "bg"
+min = 4.5
+[[contrast.pairs]]
+name = "warn-on-surface"
+kind = "text"
+fg = "warn"
+bg = "surface"
+min = 4.5
+[[contrast.pairs]]
+name = "err-on-bg"
+kind = "text"
+fg = "err"
+bg = "bg"
+min = 4.5
+[[contrast.pairs]]
+name = "err-on-surface"
+kind = "text"
+fg = "err"
+bg = "surface"
+min = 4.5
+[[contrast.pairs]]
+name = "code-literal-on-bg"
+kind = "text"
+fg = "code-literal"
+bg = "bg"
+min = 4.5
+[[contrast.pairs]]
+name = "code-literal-on-surface"
+kind = "text"
+fg = "code-literal"
+bg = "surface"
+min = 4.5
+[[contrast.pairs]]
+name = "code-literal-on-raised"
+kind = "text"
+fg = "code-literal"
+bg = "raised"
+min = 4.5
+[[contrast.pairs]]
+name = "text-on-control-hover"
+kind = "text"
+fg = "text"
+bg = "control-hover"
+min = 4.5
+[[contrast.pairs]]
+name = "text-2-on-control-hover"
+kind = "text"
+fg = "text-2"
+bg = "control-hover"
+min = 4.5
+[[contrast.pairs]]
+name = "badge-4xx-on-bg"
+kind = "text"
+fg_dark = "warn"
+fg_light = "warn-strong"
+bg = "bg"
+tint = "warn"
+min = 4.5
+[[contrast.pairs]]
+name = "badge-4xx-on-surface"
+kind = "text"
+fg_dark = "warn"
+fg_light = "warn-strong"
+bg = "surface"
+tint = "warn"
+min = 4.5
+[[contrast.pairs]]
+name = "badge-5xx-on-bg"
+kind = "text"
+fg_dark = "err"
+fg_light = "err-strong"
+bg = "bg"
+tint = "err"
+min = 4.5
+[[contrast.pairs]]
+name = "badge-5xx-on-surface"
+kind = "text"
+fg_dark = "err"
+fg_light = "err-strong"
+bg = "surface"
+tint = "err"
+min = 4.5
+[[contrast.pairs]]
+name = "accent-tint-on-bg"
+kind = "text"
+fg_dark = "accent"
+fg_light = "accent-strong"
+bg = "bg"
+tint = "accent"
+min = 4.5
+[[contrast.pairs]]
+name = "accent-tint-on-surface"
+kind = "text"
+fg_dark = "accent"
+fg_light = "accent-strong"
+bg = "surface"
+tint = "accent"
+min = 4.5
+[[contrast.pairs]]
+name = "control-border-on-bg"
+kind = "control"
+fg = "control-border"
+bg = "bg"
+min = 3.0
+[[contrast.pairs]]
+name = "control-border-on-surface"
+kind = "control"
+fg = "control-border"
+bg = "surface"
+min = 3.0
+
+[protected]
+paths = [
+  "xtask/**",
+  "harness.toml",
+  ".github/**",
+  ".cargo/**",
+  "Cargo.toml",
+  "deny.toml",
+  "clippy.toml",
+  "rustfmt.toml",
+  "rust-toolchain.toml",
+  ".nvmrc",
+  "crates/oxray/build.rs",
+  "crates/oxray/tests/mandatory/**",
+  "crates/oxray/tests/fixtures/sensitive_corpus.json",
+  "ui/biome.json",
+  "ui/tsconfig*.json",
+  "ui/vite.config.ts",
+  "ui/vitest.config.ts",
+  "ui/playwright.config.ts",
+  "ui/src/styles/tokens.css",
+  "ui/tests/mandatory/**",
+  "xtask/src/contrast.rs",
+]
+
+[hygiene]
+exclude = [
+  "Cargo.lock",
+  "ui/package-lock.json",
+  "crates/oxray/ui-dist/**",
+  "xtask/src/hygiene.rs",
+]
+
+[dependencies.oxray]
+runtime = [
+  "tokio",
+  "tower",
+  "tower-layer",
+  "tower-service",
+  "http",
+  "http-body",
+  "http-body-util",
+  "bytes",
+  "axum",
+  "tracing",
+  "tracing-subscriber",
+  "serde",
+  "serde_json",
+  "uuid",
+  "time",
+  "rust-embed",
+  "pin-project-lite",
+  "futures-util",
+  "thiserror",
+  "percent-encoding",
+  "reqwest",
+  "reqwest-middleware",
+  "async-trait",
+  "rmcp",
+  "schemars",
+]
+dev = [
+  "sqlx",
+  "tokio",
+  "proptest",
+  "insta",
+  "reqwest",
+  "rmcp",
+  "tower",
+  "tower-http",
+  "hyper-util",
+  "tempfile",
+]
+
+[dependencies.demo]
+runtime = [
+  "oxray",
+  "axum",
+  "tokio",
+  "sqlx",
+  "reqwest",
+  "reqwest-middleware",
+  "tower-http",
+  "tracing",
+  "tracing-subscriber",
+  "serde",
+  "serde_json",
+  "hmac",
+  "sha2",
+  "hex",
+]
+
+[dependencies.xtask]
+runtime = [
+  "anyhow",
+  "serde",
+  "serde_json",
+  "toml",
+  "flate2",
+  "walkdir",
+  "regex",
+]
+
+[dependencies.ui]
+runtime = [
+  "preact",
+  "@preact/signals",
+  "preact-iso",
+  "@tanstack/virtual-core",
+  "lucide-preact",
+  "@fontsource-variable/inter",
+  "@fontsource-variable/jetbrains-mono",
+]
+dev = [
+  "vite",
+  "@preact/preset-vite",
+  "typescript",
+  "@types/node",
+  "tailwindcss",
+  "@tailwindcss/vite",
+  "@biomejs/biome",
+  "vitest",
+  "@playwright/test",
+  "@axe-core/playwright",
+]
+
+[dependencies.versions]
+axum = "0.8"
+rust-embed = "8"
+reqwest = "0.13"
+reqwest-middleware = "0.5"
+async-trait = "0.1"
+rmcp = "3.8"
+sqlx = "0.9"
+tailwindcss = "4"

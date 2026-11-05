@@ -1,0 +1,7 @@
+/target
+ui/node_modules
+ui/test-results
+ui/playwright-report
+ui/blob-report
+**/*.rs.bk
+.DS_Store
