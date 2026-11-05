@@ -14,6 +14,7 @@ mod redact;
 mod sql;
 mod store;
 mod trace;
+mod ui;
 
 pub use capture::{BodyEncoding, Capture, CapturePage, CaptureSummary, Header};
 pub use layer::OxrayLayer;

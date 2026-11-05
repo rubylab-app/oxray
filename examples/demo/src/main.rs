@@ -14,6 +14,7 @@ use axum::Router;
 use axum::body::Bytes;
 use axum::extract::{ConnectInfo, Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
+use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use hmac::Mac;
 use oxray::Oxray;
@@ -51,20 +52,58 @@ async fn main() -> Result<(), BoxError> {
     let mut args = std::env::args().skip(1);
     match args.next().as_deref() {
         Some("seed") => seed_main(args).await,
+        Some("serve") => serve_main(args).await,
         Some(other) => {
             writeln!(std::io::stderr(), "unknown command {other}")?;
             std::process::exit(2);
         }
-        None => serve().await,
+        None => serve(None, None).await,
     }
 }
 
-async fn serve() -> Result<(), BoxError> {
+async fn serve_main(mut args: impl Iterator<Item = String>) -> Result<(), BoxError> {
+    let mut mount = None;
+    let mut port = None;
+    while let Some(flag) = args.next() {
+        match flag.as_str() {
+            "--mount" => {
+                mount = Some(
+                    args.next()
+                        .ok_or_else(|| string_err("usage: demo serve --mount <path>"))?,
+                );
+            }
+            "--port" => {
+                let raw = args
+                    .next()
+                    .ok_or_else(|| string_err("usage: demo serve --port <port>"))?;
+                port = Some(
+                    raw.parse::<u16>()
+                        .map_err(|_| string_err("port must be a number"))?,
+                );
+            }
+            _ => {
+                return Err(string_err(
+                    "usage: demo serve [--mount <path>] [--port <port>]",
+                ));
+            }
+        }
+    }
+    serve(mount, port).await
+}
+
+async fn serve(mount: Option<String>, port: Option<u16>) -> Result<(), BoxError> {
     let processor = spawn_processor().await?;
-    let oxray = Oxray::builder().build()?;
+    let mut builder = Oxray::builder();
+    if let Some(mount) = mount {
+        builder = builder.mount(mount);
+    }
+    let oxray = builder.build()?;
     let state = app_state(&oxray, &processor).await?;
     install_tracing(&oxray)?;
-    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let listener = match port {
+        Some(port) => TcpListener::bind(("127.0.0.1", port)).await?,
+        None => TcpListener::bind("127.0.0.1:0").await?,
+    };
     let addr = listener.local_addr()?;
     writeln!(std::io::stdout(), "demo listening on http://{addr}")?;
     axum::serve(
@@ -127,23 +166,23 @@ async fn webhook(
     Path(_psp): Path<String>,
     headers: HeaderMap,
     body: Bytes,
-) -> StatusCode {
+) -> axum::response::Response {
     let provided = headers
         .get("x-oxray-signature")
         .and_then(|value| value.to_str().ok())
         .unwrap_or("");
     let Ok(expected) = sign(&body) else {
-        return StatusCode::INTERNAL_SERVER_ERROR;
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
     if provided != expected {
-        return StatusCode::UNAUTHORIZED;
+        return StatusCode::UNAUTHORIZED.into_response();
     }
     let insert = sqlx::query("insert into payments (note) values (?)")
         .bind("ok")
         .execute(&state.pool)
         .await;
     if insert.is_err() {
-        return StatusCode::INTERNAL_SERVER_ERROR;
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     }
     for id in 0..14 {
         let query = sqlx::query("select note from payments where id = ?")
@@ -151,12 +190,12 @@ async fn webhook(
             .fetch_optional(&state.pool)
             .await;
         if query.is_err() {
-            return StatusCode::INTERNAL_SERVER_ERROR;
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
     }
     let url = format!("{}/charge", state.processor);
     let _ = state.http.post(url).body(body.to_vec()).send().await;
-    StatusCode::INTERNAL_SERVER_ERROR
+    (StatusCode::INTERNAL_SERVER_ERROR, "processor failed").into_response()
 }
 
 async fn corpus(

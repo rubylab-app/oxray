@@ -321,7 +321,12 @@ fn redaction_e2e(root: &Path) -> Result<()> {
     cargo(
         root,
         &["test", "-p", "demo", "corpus_route_redacts_every_surface"],
-    )
+    )?;
+    let harness = load_harness(root)?;
+    if rank(&harness.milestone)? >= rank("M3b")? {
+        playwright_report_has_files(root, &["e2e/flows.spec.ts"])?;
+    }
+    Ok(())
 }
 
 fn vitest(root: &Path) -> Result<()> {
@@ -503,6 +508,7 @@ fn playwright_functional(root: &Path) -> Result<()> {
             "OXRAY_PLAYWRIGHT_JSON",
             report_path.to_str().context("playwright report path")?,
         )
+        .env("OXRAY_E2E", "1")
         .args(["playwright", "test", "--grep-invert", "@visual"])
         .status()
         .context("playwright")?;

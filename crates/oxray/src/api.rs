@@ -10,6 +10,7 @@ use serde::Deserialize;
 use crate::CapturePage;
 use crate::guard;
 use crate::oxray::{Mode, Oxray};
+use crate::ui;
 
 #[derive(Debug, Deserialize)]
 struct ListQuery {
@@ -20,6 +21,7 @@ struct ListQuery {
 /// Router for this handle.
 pub fn router(oxray: Oxray) -> Router {
     let mount = oxray.inner.mount.clone();
+    let slash = format!("{mount}/");
     // A top-level fallback panics when the app router already has one.
     let inner = if oxray.mode() == Mode::Disabled {
         Router::new().fallback(|| async { StatusCode::NOT_FOUND })
@@ -28,14 +30,28 @@ pub fn router(oxray: Oxray) -> Router {
             .route("/api/captures", get(list))
             .route("/api/captures/{id}", get(detail))
             .route("/api/meta", get(meta))
-            .fallback(|| async { StatusCode::NOT_FOUND })
+            .fallback(ui::spa)
             .layer(axum::middleware::from_fn_with_state(
                 oxray.clone(),
                 guard_layer,
             ))
-            .with_state(oxray)
+            .with_state(oxray.clone())
     };
-    Router::new().nest(&mount, inner)
+    // `nest` serves `/mount` but not `/mount/`.
+    if oxray.mode() == Mode::Disabled {
+        Router::new()
+            .nest(&mount, inner)
+            .route(&slash, get(|| async { StatusCode::NOT_FOUND }))
+    } else {
+        let slash_router = Router::new()
+            .route(&slash, get(ui::spa))
+            .layer(axum::middleware::from_fn_with_state(
+                oxray.clone(),
+                guard_layer,
+            ))
+            .with_state(oxray);
+        Router::new().nest(&mount, inner).merge(slash_router)
+    }
 }
 
 async fn guard_layer(
