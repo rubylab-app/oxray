@@ -1,0 +1,589 @@
+[
+  {
+    "schema_version": 1,
+    "query": "attempt=1",
+    "mode": "dev",
+    "logs": [
+      {
+        "offset_us": 20,
+        "level": "INFO",
+        "target": "demo",
+        "message": "signed webhook",
+        "fields": {}
+      },
+      {
+        "offset_us": 40,
+        "level": "WARN",
+        "target": "demo",
+        "message": "signature timestamp is old",
+        "fields": {
+          "skew": "4s"
+        }
+      },
+      {
+        "offset_us": 800000,
+        "level": "ERROR",
+        "target": "demo",
+        "message": "processor failed",
+        "fields": {
+          "upstream": "502"
+        }
+      }
+    ],
+    "queries": [
+      {
+        "offset_us": 80,
+        "duration_us": 1200,
+        "sql": "select id from payments where pan = ?",
+        "fingerprint": "select id from payments where pan = ?",
+        "rows_affected": null,
+        "rows_returned": 1
+      },
+      {
+        "offset_us": 140,
+        "duration_us": 74,
+        "sql": "select id from orders where id = ?",
+        "fingerprint": "select id from orders where id = ?",
+        "rows_affected": null,
+        "rows_returned": 1
+      },
+      {
+        "offset_us": 220,
+        "duration_us": 80,
+        "sql": "select id from orders where id = ?",
+        "fingerprint": "select id from orders where id = ?",
+        "rows_affected": null,
+        "rows_returned": 1
+      },
+      {
+        "offset_us": 300,
+        "duration_us": 91,
+        "sql": "select id from orders where id = ?",
+        "fingerprint": "select id from orders where id = ?",
+        "rows_affected": null,
+        "rows_returned": 1
+      }
+    ],
+    "outgoing": [
+      {
+        "offset_us": 400,
+        "duration_us": 48000,
+        "method": "POST",
+        "url": "http://127.0.0.1:4010/charge",
+        "status": 502,
+        "request": {
+          "headers": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ],
+          "body": {
+            "content_type": "application/json",
+            "size_bytes": 18,
+            "captured_bytes": 18,
+            "encoding": "utf8",
+            "text": "{\"amount\":\"42.00\"}",
+            "truncated": false,
+            "omitted_reason": null
+          }
+        },
+        "response": {
+          "headers": [
+            {
+              "name": "content-type",
+              "value": "text/plain"
+            }
+          ],
+          "body": {
+            "content_type": "text/plain",
+            "size_bytes": 11,
+            "captured_bytes": 11,
+            "encoding": "utf8",
+            "text": "unavailable",
+            "truncated": false,
+            "omitted_reason": null
+          }
+        },
+        "error": null
+      }
+    ],
+    "errors": [],
+    "n_plus_one": [],
+    "redactions": [
+      {
+        "path": "/request/body/text",
+        "rule": "pan"
+      },
+      {
+        "path": "/request/headers/1/value",
+        "rule": "sensitive_header"
+      }
+    ],
+    "response": {
+      "headers": [
+        {
+          "name": "content-type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "content_type": "application/json",
+        "size_bytes": 28,
+        "captured_bytes": 28,
+        "encoding": "utf8",
+        "text": "{\"error\":\"processor failed\"}",
+        "truncated": false,
+        "omitted_reason": null
+      }
+    },
+    "id": "0193f2c4-7a1e-7c3d-9f42-6b1d2e8a51c7",
+    "short_id": "2e8a51c7",
+    "started_at": "2026-11-04T21:14:58.000Z",
+    "duration_us": 812345,
+    "method": "POST",
+    "path": "/webhooks/acme",
+    "matched_path": "/webhooks/{psp}",
+    "status": 500,
+    "request": {
+      "headers": [
+        {
+          "name": "content-type",
+          "value": "application/json"
+        },
+        {
+          "name": "x-oxray-signature",
+          "value": "[redacted]"
+        }
+      ],
+      "body": {
+        "content_type": "application/json",
+        "size_bytes": 57,
+        "captured_bytes": 57,
+        "encoding": "utf8",
+        "text": "{\"psp\":\"acme\",\"pan\":\"•••• 4242\",\"amount\":\"42.00\"}",
+        "truncated": false,
+        "omitted_reason": null
+      }
+    },
+    "flags": {
+      "has_error": true,
+      "panicked": false,
+      "truncated_request": false,
+      "truncated_response": false,
+      "streaming": false,
+      "dropped_events": 0
+    }
+  },
+  {
+    "schema_version": 1,
+    "query": "",
+    "mode": "dev",
+    "logs": [],
+    "queries": [],
+    "outgoing": [],
+    "errors": [],
+    "n_plus_one": [],
+    "redactions": [],
+    "response": {
+      "headers": [
+        {
+          "name": "content-type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "content_type": "application/json",
+        "size_bytes": 49,
+        "captured_bytes": 49,
+        "encoding": "utf8",
+        "text": "{\"id\":\"ord_2042\",\"status\":\"paid\",\"total\":\"19.99\"}",
+        "truncated": false,
+        "omitted_reason": null
+      }
+    },
+    "id": "0193f2c4-7a1e-7c3d-9f42-6b1d2e8a51c8",
+    "short_id": "2e8a51c8",
+    "started_at": "2026-11-04T21:14:40.000Z",
+    "duration_us": 1200,
+    "method": "GET",
+    "path": "/v1/orders/ord_2042",
+    "matched_path": "/v1/orders/{id}",
+    "status": 200,
+    "request": {
+      "headers": [
+        {
+          "name": "accept",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "content_type": null,
+        "size_bytes": 0,
+        "captured_bytes": 0,
+        "encoding": "utf8",
+        "text": null,
+        "truncated": false,
+        "omitted_reason": null
+      }
+    },
+    "flags": {
+      "has_error": false,
+      "panicked": false,
+      "truncated_request": false,
+      "truncated_response": false,
+      "streaming": false,
+      "dropped_events": 0
+    }
+  },
+  {
+    "schema_version": 1,
+    "query": "",
+    "mode": "dev",
+    "logs": [],
+    "queries": [],
+    "outgoing": [],
+    "errors": [],
+    "n_plus_one": [],
+    "redactions": [],
+    "response": {
+      "headers": [
+        {
+          "name": "content-type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "content_type": "application/json",
+        "size_bytes": 28,
+        "captured_bytes": 28,
+        "encoding": "utf8",
+        "text": "{\"error\":\"already refunded\"}",
+        "truncated": false,
+        "omitted_reason": null
+      }
+    },
+    "id": "0193f2c4-7a1e-7c3d-9f42-6b1d2e8a51c9",
+    "short_id": "2e8a51c9",
+    "started_at": "2026-11-04T21:13:12.000Z",
+    "duration_us": 48000,
+    "method": "POST",
+    "path": "/v1/refunds",
+    "matched_path": "/v1/refunds",
+    "status": 422,
+    "request": {
+      "headers": [
+        {
+          "name": "content-type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "content_type": "application/json",
+        "size_bytes": 39,
+        "captured_bytes": 39,
+        "encoding": "utf8",
+        "text": "{\"amount\":\"12.00\",\"reason\":\"duplicate\"}",
+        "truncated": false,
+        "omitted_reason": null
+      }
+    },
+    "flags": {
+      "has_error": false,
+      "panicked": false,
+      "truncated_request": false,
+      "truncated_response": false,
+      "streaming": false,
+      "dropped_events": 0
+    }
+  },
+  {
+    "schema_version": 1,
+    "query": "",
+    "mode": "dev",
+    "logs": [],
+    "queries": [],
+    "outgoing": [],
+    "errors": [],
+    "n_plus_one": [],
+    "redactions": [],
+    "response": {
+      "headers": [
+        {
+          "name": "content-type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "content_type": "application/json",
+        "size_bytes": 11,
+        "captured_bytes": 11,
+        "encoding": "utf8",
+        "text": "{\"ok\":true}",
+        "truncated": false,
+        "omitted_reason": null
+      }
+    },
+    "id": "0193f2c4-7a1e-7c3d-9f42-6b1d2e8a51ca",
+    "short_id": "2e8a51ca",
+    "started_at": "2026-11-04T21:12:00.000Z",
+    "duration_us": 74000,
+    "method": "GET",
+    "path": "/healthz",
+    "matched_path": null,
+    "status": 200,
+    "request": {
+      "headers": [
+        {
+          "name": "accept",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "content_type": null,
+        "size_bytes": 0,
+        "captured_bytes": 0,
+        "encoding": "utf8",
+        "text": null,
+        "truncated": false,
+        "omitted_reason": null
+      }
+    },
+    "flags": {
+      "has_error": false,
+      "panicked": false,
+      "truncated_request": false,
+      "truncated_response": false,
+      "streaming": false,
+      "dropped_events": 0
+    }
+  },
+  {
+    "schema_version": 1,
+    "query": "",
+    "mode": "dev",
+    "logs": [],
+    "queries": [],
+    "outgoing": [],
+    "errors": [],
+    "n_plus_one": [],
+    "redactions": [],
+    "response": null,
+    "id": "0193f2c4-7a1e-7c3d-9f42-6b1d2e8a51cb",
+    "short_id": "2e8a51cb",
+    "started_at": "2026-11-04T21:11:00.000Z",
+    "duration_us": 25000,
+    "method": "POST",
+    "path": "/webhooks/acme",
+    "matched_path": "/webhooks/{psp}",
+    "status": null,
+    "request": {
+      "headers": [
+        {
+          "name": "content-type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "content_type": "application/json",
+        "size_bytes": 29,
+        "captured_bytes": 29,
+        "encoding": "utf8",
+        "text": "{\"psp\":\"acme\",\"event\":\"ping\"}",
+        "truncated": false,
+        "omitted_reason": null
+      }
+    },
+    "flags": {
+      "has_error": true,
+      "panicked": true,
+      "truncated_request": false,
+      "truncated_response": false,
+      "streaming": false,
+      "dropped_events": 0
+    }
+  },
+  {
+    "schema_version": 1,
+    "query": "",
+    "mode": "dev",
+    "logs": [],
+    "queries": [],
+    "outgoing": [],
+    "errors": [],
+    "n_plus_one": [],
+    "redactions": [],
+    "response": {
+      "headers": [
+        {
+          "name": "content-type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "content_type": "application/json",
+        "size_bytes": 16,
+        "captured_bytes": 16,
+        "encoding": "utf8",
+        "text": "{\"id\":\"ord_991\"}",
+        "truncated": false,
+        "omitted_reason": null
+      }
+    },
+    "id": "0193f2c4-7a1e-7c3d-9f42-6b1d2e8a51cc",
+    "short_id": "2e8a51cc",
+    "started_at": "2026-11-04T21:10:10.000Z",
+    "duration_us": 1240000,
+    "method": "POST",
+    "path": "/v1/orders/ord_991",
+    "matched_path": "/v1/orders/{id}",
+    "status": 201,
+    "request": {
+      "headers": [
+        {
+          "name": "content-type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "content_type": "application/json",
+        "size_bytes": 1363149,
+        "captured_bytes": 65536,
+        "encoding": "utf8",
+        "text": "{\"note\":\"partial\"}",
+        "truncated": true,
+        "omitted_reason": null
+      }
+    },
+    "flags": {
+      "has_error": false,
+      "panicked": false,
+      "truncated_request": true,
+      "truncated_response": false,
+      "streaming": false,
+      "dropped_events": 0
+    }
+  },
+  {
+    "schema_version": 1,
+    "query": "",
+    "mode": "dev",
+    "logs": [],
+    "queries": [],
+    "outgoing": [],
+    "errors": [],
+    "n_plus_one": [],
+    "redactions": [],
+    "response": {
+      "headers": [
+        {
+          "name": "content-type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "content_type": "application/json",
+        "size_bytes": 15,
+        "captured_bytes": 15,
+        "encoding": "utf8",
+        "text": "{\"stored\":true}",
+        "truncated": false,
+        "omitted_reason": null
+      }
+    },
+    "id": "0193f2c4-7a1e-7c3d-9f42-6b1d2e8a51cd",
+    "short_id": "2e8a51cd",
+    "started_at": "2026-11-04T20:00:00.000Z",
+    "duration_us": 90000,
+    "method": "POST",
+    "path": "/v1/refunds",
+    "matched_path": "/v1/refunds",
+    "status": 200,
+    "request": {
+      "headers": [
+        {
+          "name": "content-type",
+          "value": "image/png"
+        }
+      ],
+      "body": {
+        "content_type": "image/png",
+        "size_bytes": 493568,
+        "captured_bytes": 0,
+        "encoding": "omitted",
+        "text": null,
+        "truncated": false,
+        "omitted_reason": "binary:image/png"
+      }
+    },
+    "flags": {
+      "has_error": false,
+      "panicked": false,
+      "truncated_request": false,
+      "truncated_response": false,
+      "streaming": false,
+      "dropped_events": 0
+    }
+  },
+  {
+    "schema_version": 1,
+    "query": "",
+    "mode": "dev",
+    "logs": [],
+    "queries": [],
+    "outgoing": [],
+    "errors": [],
+    "n_plus_one": [],
+    "redactions": [],
+    "response": {
+      "headers": [
+        {
+          "name": "content-type",
+          "value": "text/plain"
+        }
+      ],
+      "body": {
+        "content_type": "text/plain",
+        "size_bytes": 0,
+        "captured_bytes": 0,
+        "encoding": "utf8",
+        "text": "",
+        "truncated": false,
+        "omitted_reason": null
+      }
+    },
+    "id": "0193f2c4-7a1e-7c3d-9f42-6b1d2e8a51ce",
+    "short_id": "2e8a51ce",
+    "started_at": "2026-11-04T18:15:00.000Z",
+    "duration_us": 1500,
+    "method": "POST",
+    "path": "/webhooks/acme",
+    "matched_path": "/webhooks/{psp}",
+    "status": 204,
+    "request": {
+      "headers": [
+        {
+          "name": "content-type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "content_type": "application/json",
+        "size_bytes": 1229,
+        "captured_bytes": 0,
+        "encoding": "omitted",
+        "text": null,
+        "truncated": false,
+        "omitted_reason": "not_read_by_app"
+      }
+    },
+    "flags": {
+      "has_error": false,
+      "panicked": false,
+      "truncated_request": false,
+      "truncated_response": false,
+      "streaming": false,
+      "dropped_events": 0
+    }
+  }
+]

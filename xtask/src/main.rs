@@ -226,6 +226,7 @@ fn run_validation(root: &Path, harness: &Harness, name: &str) -> Result<()> {
             playwright_functional(root)
         }
         "v8" | "v11" => playwright_report_has_required(root),
+        "v19" => playwright_report_has_files(root, &["dom-lint.spec.ts"]),
         "v9" => visual(root),
         "v10" => contrast::check(root),
         "v12" => check_bundle(root, &harness.thresholds),
@@ -235,7 +236,7 @@ fn run_validation(root: &Path, harness: &Harness, name: &str) -> Result<()> {
         "v16" => hygiene::check(root),
         "v5" => release_guard(root),
         "v18" => redaction_e2e(root),
-        "v17" | "v19" => bail!("{name} is active but has no runner"),
+        "v17" => bail!("{name} is active but has no runner"),
         other => bail!("unknown validation {other}"),
     }
 }
@@ -511,27 +512,31 @@ fn playwright_functional(root: &Path) -> Result<()> {
     let report: serde_json::Value = serde_json::from_str(&fs::read_to_string(&report_path)?)?;
     let mut passed: BTreeMap<String, u64> = BTreeMap::new();
     walk_suites(&report, &mut passed);
-    require_playwright_files(&passed)
+    require_named(&passed, &PLAYWRIGHT_FILES)
 }
 
 fn playwright_report_has_required(root: &Path) -> Result<()> {
+    playwright_report_has_files(root, &PLAYWRIGHT_FILES)
+}
+
+fn playwright_report_has_files(root: &Path, required: &[&str]) -> Result<()> {
     let report: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(root.join("target/playwright.json"))?)
             .context("playwright report from v7")?;
     let mut passed = BTreeMap::new();
     walk_suites(&report, &mut passed);
-    require_playwright_files(&passed)
+    require_named(&passed, required)
 }
 
-fn require_playwright_files(passed: &BTreeMap<String, u64>) -> Result<()> {
-    for required in PLAYWRIGHT_FILES {
+fn require_named(passed: &BTreeMap<String, u64>, required: &[&str]) -> Result<()> {
+    for name in required {
         let cases = passed
             .iter()
-            .find(|(file, _)| file.replace('\\', "/").ends_with(required))
+            .find(|(file, _)| file.replace('\\', "/").ends_with(name))
             .map(|(_, count)| *count)
             .unwrap_or(0);
         if cases == 0 {
-            bail!("playwright ran zero tests for {required}");
+            bail!("playwright ran zero tests for {name}");
         }
     }
     Ok(())
