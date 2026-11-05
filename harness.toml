@@ -1,4 +1,4 @@
-milestone = "M1"
+milestone = "M2"
 
 [validations.v1]
 since = "M0"

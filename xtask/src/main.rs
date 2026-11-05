@@ -72,24 +72,106 @@ fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
     let command = args
         .next()
-        .context("usage: xtask <verify|ui-build|screenshots>")?;
-    if args.next().is_some() {
-        bail!("unexpected extra argument");
-    }
+        .context("usage: xtask <verify|ui-build|screenshots|seed|bench>")?;
     let root = workspace_root()?;
     match command.as_str() {
-        "verify" => verify(&root),
+        "seed" => seed(&root, args),
+        "bench" => {
+            if args.next().is_some() {
+                bail!("unexpected extra argument");
+            }
+            bench(&root)
+        }
+        "verify" => {
+            if args.next().is_some() {
+                bail!("unexpected extra argument");
+            }
+            verify(&root)
+        }
         "ui-build" => {
+            if args.next().is_some() {
+                bail!("unexpected extra argument");
+            }
             ensure_node()?;
             npm_ci(&root)?;
             vite_build(&root)
         }
         "screenshots" => {
+            if args.next().is_some() {
+                bail!("unexpected extra argument");
+            }
             ensure_node()?;
             run_visual(&root, true)
         }
         other => bail!("unknown command {other}"),
     }
+}
+
+fn seed(root: &Path, mut args: impl Iterator<Item = String>) -> Result<()> {
+    let flag = args.next().context("usage: xtask seed --url <url>")?;
+    if flag != "--url" {
+        bail!("usage: xtask seed --url <url>");
+    }
+    let url = args.next().context("usage: xtask seed --url <url>")?;
+    if args.next().is_some() {
+        bail!("unexpected extra argument");
+    }
+    cargo(root, &["run", "-p", "demo", "--", "seed", "--url", &url])
+}
+
+fn bench(root: &Path) -> Result<()> {
+    let baseline = bench_case(root, "baseline", false)?;
+    let disabled = bench_case(root, "disabled", true)?;
+    let dev = bench_case(root, "dev", false)?;
+    writeln_stdout(&format!("baseline_ns {baseline}"))?;
+    writeln_stdout(&format!("disabled_ns {disabled}"))?;
+    writeln_stdout(&format!("dev_ns {dev}"))?;
+    writeln_stdout(&format!(
+        "M-001 disabled_overhead_ns {}",
+        disabled.saturating_sub(baseline)
+    ))?;
+    writeln_stdout(&format!(
+        "M-002 dev_overhead_ns {}",
+        dev.saturating_sub(baseline)
+    ))?;
+    Ok(())
+}
+
+fn bench_case(root: &Path, case: &str, disabled: bool) -> Result<u128> {
+    let mut command = Command::new("cargo");
+    command
+        .args([
+            "bench",
+            "--profile",
+            "bench-dev",
+            "-p",
+            "oxray",
+            "--bench",
+            "overhead",
+        ])
+        .current_dir(root)
+        .env("OXRAY_BENCH", case);
+    if disabled {
+        command.env("OXRAY", "off");
+    } else {
+        command.env_remove("OXRAY");
+    }
+    let result = command.output().context("spawn cargo bench")?;
+    let stdout = String::from_utf8(result.stdout).context("bench output")?;
+    if !result.status.success() {
+        bail!(
+            "bench {case} exited {}\n{}\n{stdout}",
+            result.status,
+            String::from_utf8_lossy(&result.stderr)
+        );
+    }
+    stdout
+        .lines()
+        .find_map(|line| line.strip_prefix("median_ns "))
+        .context("bench did not print median_ns")?
+        .trim()
+        .parse()
+        .context("median_ns")
 }
 
 fn workspace_root() -> Result<PathBuf> {
@@ -234,7 +316,11 @@ fn redaction_e2e(root: &Path) -> Result<()> {
     if !text.contains("#[test]") && !text.contains("#[tokio::test]") {
         bail!("redaction_e2e has no tests");
     }
-    cargo(root, &["test", "-p", "oxray", "--test", "redaction_e2e"])
+    cargo(root, &["test", "-p", "oxray", "--test", "redaction_e2e"])?;
+    cargo(
+        root,
+        &["test", "-p", "demo", "corpus_route_redacts_every_surface"],
+    )
 }
 
 fn vitest(root: &Path) -> Result<()> {

@@ -41,3 +41,30 @@ async fn ten_thousand_large_bodies_stay_inside_the_caps() {
     assert!(bytes <= max_bytes as u64);
     assert!(captures > 0);
 }
+
+#[cfg(feature = "reqwest")]
+#[tokio::test]
+async fn side_table_stays_within_one_thousand() {
+    let oxray = Oxray::builder().build().unwrap();
+    assert_eq!(oxray.mode(), Mode::Dev);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        let _ = axum::serve(
+            listener,
+            axum::Router::new().route("/x", axum::routing::get(|| async { "ok" })),
+        )
+        .await;
+    });
+    let client =
+        reqwest_middleware::ClientBuilder::new(reqwest::Client::builder().build().unwrap())
+            .with(oxray.reqwest_middleware())
+            .build();
+    for _ in 0..1_100 {
+        let response = client.get(format!("http://{addr}/x")).send().await;
+        assert!(response.is_ok());
+    }
+    let pending = oxray.pending_outgoing();
+    assert!(pending <= 1_000);
+    assert!(pending > 0);
+}

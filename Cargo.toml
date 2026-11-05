@@ -11,6 +11,11 @@ license = "MIT OR Apache-2.0"
 missing_docs = "deny"
 unsafe_code = "forbid"
 
+[profile.bench-dev]
+inherits = "dev"
+opt-level = 3
+debug-assertions = true
+
 [workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
 unwrap_used = "deny"

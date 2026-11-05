@@ -7,13 +7,16 @@ use axum::Router;
 
 use crate::Capture;
 use crate::api;
+use crate::collect::Tables;
 use crate::layer::OxrayLayer;
 use crate::redact::Redactor;
 use crate::store::MemoryStore;
+use crate::trace::OxrayTracingLayer;
 
 const DEFAULT_BODY_LIMIT: usize = 64 * 1024;
 const DEFAULT_MAX_CAPTURES: usize = 1_000;
 const DEFAULT_MAX_BYTES: usize = 64 * 1024 * 1024;
+const DEFAULT_N_PLUS_ONE: u64 = 3;
 
 /// Whether Oxray is recording requests.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -62,6 +65,7 @@ pub(crate) struct Inner {
     pub(crate) warned_redact: AtomicBool,
     pub(crate) store_warns: AtomicU32,
     pub(crate) redact_warns: AtomicU32,
+    pub(crate) tables: Tables,
 }
 
 /// Builder for [`Oxray`].
@@ -75,6 +79,7 @@ pub struct OxrayBuilder {
     response_header: bool,
     redact_headers: Vec<String>,
     redact_keys: Vec<String>,
+    n_plus_one_threshold: u64,
 }
 
 impl Oxray {
@@ -88,6 +93,7 @@ impl Oxray {
             response_header: true,
             redact_headers: Vec::new(),
             redact_keys: Vec::new(),
+            n_plus_one_threshold: DEFAULT_N_PLUS_ONE,
         }
     }
 
@@ -106,6 +112,24 @@ impl Oxray {
     /// Router mounted at the configured path.
     pub fn router(&self) -> Router {
         api::router(self.clone())
+    }
+
+    /// Tracing layer that records logs and sqlx queries for the active request.
+    pub fn tracing_layer(&self) -> OxrayTracingLayer {
+        OxrayTracingLayer::new(self.clone())
+    }
+
+    /// Reqwest middleware that records outgoing calls made inside a request.
+    #[cfg(feature = "reqwest")]
+    pub fn reqwest_middleware(&self) -> crate::outgoing::OxrayMiddleware {
+        crate::outgoing::OxrayMiddleware::new(self.clone())
+    }
+
+    /// In-flight outgoing calls not yet attached to a request.
+    ///
+    /// The table drops expired entries and never keeps more than 1,000.
+    pub fn pending_outgoing(&self) -> usize {
+        self.inner.tables.pending_outgoing()
     }
 
     /// Redacts `capture` with this handle's rules.
@@ -214,6 +238,12 @@ impl OxrayBuilder {
         self
     }
 
+    /// How many identical SQL fingerprints count as N+1. Defaults to 3.
+    pub fn n_plus_one_threshold(mut self, count: u64) -> Self {
+        self.n_plus_one_threshold = count;
+        self
+    }
+
     /// Builds the handle, or rejects an empty limit.
     pub fn build(self) -> Result<Oxray, Error> {
         if self.body_limit == 0 {
@@ -244,8 +274,60 @@ impl OxrayBuilder {
                 warned_redact: AtomicBool::new(false),
                 store_warns: AtomicU32::new(0),
                 redact_warns: AtomicU32::new(0),
+                tables: Tables::new(self.n_plus_one_threshold),
             }),
         })
+    }
+}
+
+impl Oxray {
+    #[cfg(feature = "reqwest")]
+    pub(crate) fn body_limit(&self) -> usize {
+        self.inner.body_limit
+    }
+
+    pub(crate) fn begin_collector(&self, id: &str, started: std::time::Instant) {
+        self.inner.tables.begin(id, started);
+    }
+
+    pub(crate) fn collector(&self, id: &str) -> Option<crate::collect::SharedCollector> {
+        self.inner.tables.collector(id)
+    }
+
+    pub(crate) fn discard_collector(&self, id: &str) {
+        self.inner.tables.discard(id);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn collector_len(&self) -> usize {
+        self.inner.tables.len()
+    }
+
+    pub(crate) fn take_bundle(
+        &self,
+        id: &str,
+        started: std::time::Instant,
+    ) -> crate::collect::Bundle {
+        self.inner.tables.finish(id, started)
+    }
+
+    #[cfg(feature = "reqwest")]
+    pub(crate) fn park_outgoing(
+        &self,
+        data: std::sync::Arc<std::sync::Mutex<crate::collect::OutgoingState>>,
+    ) -> u64 {
+        self.inner.tables.park_outgoing(data)
+    }
+
+    pub(crate) fn take_outgoing(
+        &self,
+        id: u64,
+    ) -> Option<std::sync::Arc<std::sync::Mutex<crate::collect::OutgoingState>>> {
+        self.inner.tables.take_outgoing(id)
+    }
+
+    pub(crate) fn claim_filter_warn(&self) -> bool {
+        self.inner.tables.claim_filter_warn()
     }
 }
 

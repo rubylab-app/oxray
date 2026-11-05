@@ -4,15 +4,23 @@
 
 mod api;
 mod capture;
+mod collect;
 mod guard;
 mod layer;
+#[cfg(feature = "reqwest")]
+mod outgoing;
 mod oxray;
 mod redact;
+mod sql;
 mod store;
+mod trace;
 
 pub use capture::{BodyEncoding, Capture, CapturePage, CaptureSummary, Header};
 pub use layer::OxrayLayer;
+#[cfg(feature = "reqwest")]
+pub use outgoing::OxrayMiddleware;
 pub use oxray::{Error, Mode, Oxray, OxrayBuilder};
+pub use trace::OxrayTracingLayer;
 
 use std::time::Duration;
 

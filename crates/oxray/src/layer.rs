@@ -119,7 +119,10 @@ where
     )
     .await;
     let req = Request::from_parts(parts, body);
-    let span = tracing::info_span!("oxray.request", id = %id_text);
+    oxray.begin_collector(&id_text, started);
+    let guard = CollectorGuard::new(oxray.clone(), id_text.clone());
+    crate::trace::warn_if_global_filter_blocks(&oxray);
+    let span = tracing::info_span!(target: "oxray", "oxray.request", id = %id_text);
     let called = std::panic::AssertUnwindSafe(inner.call(req).instrument(span))
         .catch_unwind()
         .await;
@@ -140,6 +143,7 @@ where
                 request_buf,
                 request_type: content_type,
                 request_length: content_length,
+                guard,
             },
         )),
         Ok(Err(error)) => Err(error),
@@ -159,11 +163,40 @@ where
                     request_buf,
                     request_type: content_type,
                     request_length: content_length,
+                    guard,
                 },
                 None,
                 true,
             );
             std::panic::resume_unwind(panic);
+        }
+    }
+}
+
+struct CollectorGuard {
+    oxray: Oxray,
+    id: String,
+    armed: AtomicBool,
+}
+
+impl CollectorGuard {
+    fn new(oxray: Oxray, id: String) -> Self {
+        Self {
+            oxray,
+            id,
+            armed: AtomicBool::new(true),
+        }
+    }
+
+    fn disarm(&self) {
+        self.armed.store(false, Ordering::Relaxed);
+    }
+}
+
+impl Drop for CollectorGuard {
+    fn drop(&mut self) {
+        if self.armed.swap(false, Ordering::Relaxed) {
+            self.oxray.discard_collector(&self.id);
         }
     }
 }
@@ -181,6 +214,7 @@ struct Draft {
     request_buf: SharedBuf,
     request_type: Option<String>,
     request_length: Option<u64>,
+    guard: CollectorGuard,
 }
 
 fn finish_response(oxray: Oxray, response: Response<Body>, draft: Draft) -> Response<Body> {
@@ -277,7 +311,9 @@ fn store_draft(
         None => (None, None, false),
     };
     let duration_us = u64::try_from(draft.started.elapsed().as_micros()).unwrap_or(u64::MAX);
-    let has_error = panicked || status.is_some_and(|code| code >= 500);
+    let recorded = oxray.take_bundle(&draft.id, draft.started);
+    draft.guard.disarm();
+    let has_error = panicked || status.is_some_and(|code| code >= 500) || recorded.saw_error;
     let capture = Capture {
         schema_version: 1,
         id: draft.id.clone(),
@@ -295,11 +331,11 @@ fn store_draft(
             body: request_body.clone(),
         },
         response: response_message,
-        logs: Vec::new(),
-        queries: Vec::new(),
-        outgoing: Vec::new(),
-        errors: Vec::new(),
-        n_plus_one: Vec::new(),
+        logs: recorded.logs,
+        queries: recorded.queries,
+        outgoing: recorded.outgoing,
+        errors: recorded.errors,
+        n_plus_one: recorded.n_plus_one,
         redactions: Vec::new(),
         flags: Flags {
             has_error,
@@ -307,7 +343,7 @@ fn store_draft(
             truncated_request: request_body.truncated,
             truncated_response,
             streaming,
-            dropped_events: 0,
+            dropped_events: recorded.dropped_events,
         },
     };
     oxray.store_capture(capture);
@@ -666,6 +702,9 @@ mod tests {
     use super::{
         is_multipart, is_stream, mount_matches, omit_reason, omit_reason_for, should_omit_type,
     };
+    use crate::oxray::Oxray;
+    use axum::body::Body;
+    use http::{Request, Response};
 
     #[test]
     fn trailing_slash_still_marks_inspector_paths() {
@@ -697,4 +736,58 @@ mod tests {
             Some("event_stream".to_owned())
         );
     }
+
+    #[tokio::test]
+    async fn dropped_request_releases_the_collector() {
+        use std::task::Poll;
+        use tower::service_fn;
+        use tower_layer::Layer;
+        use tower_service::Service;
+
+        let oxray = Oxray::builder().build().unwrap();
+        let mut service = oxray.layer().layer(service_fn(|_request: Request<Body>| {
+            std::future::pending::<Result<Response<Body>, std::convert::Infallible>>()
+        }));
+        let request = Request::builder()
+            .uri("/pending")
+            .body(Body::empty())
+            .unwrap();
+        {
+            let mut future = std::pin::pin!(service.call(request));
+            let waker = futures_util::task::noop_waker();
+            let mut context = std::task::Context::from_waker(&waker);
+            assert!(matches!(future.as_mut().poll(&mut context), Poll::Pending));
+            assert_eq!(oxray.collector_len(), 1);
+        }
+        assert_eq!(oxray.collector_len(), 0);
+    }
+
+    #[tokio::test]
+    async fn service_error_releases_the_collector() {
+        use tower::ServiceExt;
+        use tower::service_fn;
+        use tower_layer::Layer;
+
+        let oxray = Oxray::builder().build().unwrap();
+        let service = oxray
+            .layer()
+            .layer(service_fn(|_request: Request<Body>| async {
+                Err::<Response<Body>, Boom>(Boom)
+            }));
+        let request = Request::builder().uri("/fail").body(Body::empty()).unwrap();
+        let result = service.oneshot(request).await;
+        assert!(result.is_err());
+        assert_eq!(oxray.collector_len(), 0);
+    }
+
+    #[derive(Debug)]
+    struct Boom;
+
+    impl std::fmt::Display for Boom {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("boom")
+        }
+    }
+
+    impl std::error::Error for Boom {}
 }

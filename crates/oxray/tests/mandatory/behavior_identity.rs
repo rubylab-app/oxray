@@ -15,6 +15,10 @@ use tower::ServiceExt;
 async fn responses_match_and_the_capture_records_the_exchange() {
     let oxray = Oxray::builder().body_limit(64 * 1024).build().unwrap();
     assert_eq!(oxray.mode(), Mode::Dev);
+    use tracing_subscriber::prelude::*;
+    let _ = tracing_subscriber::registry()
+        .with(oxray.tracing_layer())
+        .try_init();
 
     let payload = r#"{"hello":"world"}"#;
     let (plain_status, plain_headers, plain_body) =
