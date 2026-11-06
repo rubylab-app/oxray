@@ -16,7 +16,11 @@ mod store;
 mod trace;
 mod ui;
 
-pub use capture::{BodyEncoding, Capture, CapturePage, CaptureSummary, Header};
+pub use capture::{
+    BacktraceFrame, BodyCapture, BodyEncoding, Capture, CapturePage, CaptureSummary, ErrorEntry,
+    ErrorKind, Flags, Header, LogEntry, Message, NPlusOne, OutgoingCall, QueryEntry, Redaction,
+    SummaryCounts, SummaryFlags,
+};
 pub use layer::OxrayLayer;
 #[cfg(feature = "reqwest")]
 pub use outgoing::OxrayMiddleware;
