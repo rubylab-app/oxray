@@ -4,6 +4,7 @@
 
 mod contrast;
 mod hygiene;
+mod readme;
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -72,7 +73,7 @@ fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
     let command = args
         .next()
-        .context("usage: xtask <verify|ui-build|screenshots|seed|bench>")?;
+        .context("usage: xtask <verify|ui-build|screenshots|seed|bench|readme-test>")?;
     let root = workspace_root()?;
     match command.as_str() {
         "seed" => seed(&root, args),
@@ -81,6 +82,12 @@ fn main() -> Result<()> {
                 bail!("unexpected extra argument");
             }
             bench(&root)
+        }
+        "readme-test" => {
+            if args.next().is_some() {
+                bail!("unexpected extra argument");
+            }
+            readme::install(&root)
         }
         "verify" => {
             if args.next().is_some() {
@@ -236,7 +243,10 @@ fn run_validation(root: &Path, harness: &Harness, name: &str) -> Result<()> {
         "v16" => hygiene::check(root),
         "v5" => release_guard(root),
         "v18" => redaction_e2e(root),
-        "v17" => bail!("{name} is active but has no runner"),
+        "v17" => {
+            readme::package(root)?;
+            readme::install(root)
+        }
         other => bail!("unknown validation {other}"),
     }
 }

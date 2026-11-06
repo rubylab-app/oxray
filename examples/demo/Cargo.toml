@@ -10,7 +10,7 @@ license.workspace = true
 axum = "0.8"
 hex = "0.4"
 hmac = "0.12"
-oxray = { path = "../../crates/oxray", version = "0.0.0", features = ["reqwest"] }
+oxray = { path = "../../crates/oxray", version = "0.1.0", features = ["reqwest"] }
 reqwest = { version = "0.13", default-features = false }
 reqwest-middleware = "0.5"
 serde = { version = "1", features = ["derive"] }

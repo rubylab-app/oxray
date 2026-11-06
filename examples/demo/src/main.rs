@@ -1,7 +1,4 @@
-//! Minimal Axum app that exercises Oxray in dev.
-//!
-//! `GET /` answers `ok`. `POST /webhooks/{psp}` records a signed payment
-//! webhook. `POST /corpus` runs every sensitive surface through the redactor.
+//! Demo Axum app: orders, a signed `4242` test-card webhook, and the corpus route.
 
 #![forbid(unsafe_code)]
 
@@ -134,6 +131,16 @@ async fn seed(base: &str) -> Result<(), BoxError> {
     let base = base.trim_end_matches('/');
     let client = reqwest::Client::builder().build()?;
     client.get(format!("{base}/")).send().await?;
+    client
+        .post(format!("{base}/v1/orders"))
+        .header("content-type", "application/json")
+        .body(r#"{"sku":"mug","qty":1}"#)
+        .send()
+        .await?;
+    client
+        .get(format!("{base}/v1/orders/ord_1001"))
+        .send()
+        .await?;
     let body = webhook_body();
     let signature = sign(body.as_bytes())?;
     client
@@ -149,6 +156,8 @@ async fn seed(base: &str) -> Result<(), BoxError> {
 fn router(oxray: Oxray, state: AppState) -> Router {
     Router::new()
         .route("/", get(root))
+        .route("/v1/orders", post(create_order))
+        .route("/v1/orders/{id}", get(show_order))
         .route("/webhooks/{psp}", post(webhook))
         .route("/corpus", post(corpus))
         .with_state(state)
@@ -159,6 +168,26 @@ fn router(oxray: Oxray, state: AppState) -> Router {
 
 async fn root(ConnectInfo(_peer): ConnectInfo<SocketAddr>) -> &'static str {
     "ok"
+}
+
+async fn create_order() -> impl IntoResponse {
+    (
+        StatusCode::CREATED,
+        [("content-type", "application/json")],
+        r#"{"id":"ord_1001","status":"paid"}"#,
+    )
+}
+
+async fn show_order(Path(id): Path<String>) -> axum::response::Response {
+    if id != "ord_1001" {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    (
+        StatusCode::OK,
+        [("content-type", "application/json")],
+        r#"{"id":"ord_1001","status":"paid"}"#,
+    )
+        .into_response()
 }
 
 async fn webhook(
