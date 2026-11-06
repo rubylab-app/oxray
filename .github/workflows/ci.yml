@@ -43,7 +43,6 @@ jobs:
 
   verify-macos:
     name: verify-macos
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-macos'))
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
