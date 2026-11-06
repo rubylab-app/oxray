@@ -164,9 +164,11 @@ pub struct ErrorEntry {
     pub backtrace: Vec<BacktraceFrame>,
 }
 
-/// Kind of error entry.
+/// Kind of error entry. New kinds can arrive in a minor release, so a
+/// `match` needs a `_` arm.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum ErrorKind {
     /// A panicked handler.
     Panic,

@@ -46,3 +46,15 @@ fn summary_parts_have_public_names() {
     assert_eq!(counts.errors, capture.errors.len() as u64);
     assert_eq!(flags.panicked, capture.flags.panicked);
 }
+
+/// Without `#[non_exhaustive]` the `_` arm is unreachable and clippy fails.
+#[test]
+fn error_kind_matches_need_a_wildcard() {
+    let label = |kind: ErrorKind| match kind {
+        ErrorKind::Panic => "panic",
+        ErrorKind::ErrorEvent => "error event",
+        _ => "other",
+    };
+    assert_eq!(label(ErrorKind::Panic), "panic");
+    assert_eq!(label(ErrorKind::ErrorEvent), "error event");
+}
