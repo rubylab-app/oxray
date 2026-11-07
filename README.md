@@ -162,9 +162,33 @@ cargo xtask seed --url http://127.0.0.1:4175
 
 `serve --mount /debug/oxray` moves the UI. The demo's default mount is `/_oxray`.
 
+## With a coding agent
+
+Every response carries an `x-oxray-id` header, and `GET {mount}/api/captures/{id}/markdown` returns that exchange as a compact Markdown document. `GET {mount}/api/captures?failed=true&limit=10` lists recent failures; `status=5xx` and `after=<id>` narrow the list too. In tests, `oxray.capture(&id)` or `oxray.latest_capture()` returns the stored `Capture`, so a failing assert can print `capture.markdown()`.
+
+Paste this into the app's `AGENTS.md` or `CLAUDE.md`:
+
+```text
+Oxray in Dev builds records every request this app serves; UI/API: http://127.0.0.1:3000/_oxray.
+Every response carries an x-oxray-id header.
+Its capture as Markdown: http://127.0.0.1:3000/_oxray/api/captures/{id}/markdown
+Recent failures: http://127.0.0.1:3000/_oxray/api/captures?failed=true&limit=10
+The list also takes status=5xx and after=<id>.
+In tests: oxray.capture(&id) or oxray.latest_capture(), print capture.markdown() in asserts.
+```
+
+```rust
+let response = app.clone().oneshot(request).await?;
+let status = response.status();
+let id = response.headers().get("x-oxray-id").unwrap().to_str()?.to_owned();
+let _body = axum::body::to_bytes(response.into_body(), usize::MAX).await?; // read the body first: the capture is stored now
+let capture = oxray.capture(&id).unwrap();
+assert_eq!(status, StatusCode::OK, "{}", capture.markdown());
+```
+
 ## What 0.1.0 does not do
 
-No persistence across restarts, no live updates, no search or filters, no staging mode, no MCP, no panic backtrace, no "copy as cURL" or Markdown export, and no N+1 grouping in the list. Those are outside this version. The license is MIT OR Apache-2.0.
+No persistence across restarts, no live updates, no search, no staging mode, no MCP, no panic backtrace, no "copy as cURL" or copy-as-Markdown button, and no N+1 grouping in the list. Those are outside this version. The license is MIT OR Apache-2.0.
 
 ## Development
 

@@ -85,6 +85,15 @@ impl MemoryStore {
             .map(|item| item.capture.clone())
     }
 
+    /// The capture with the greatest id, or None when the store is empty.
+    pub fn latest(&self) -> Option<Capture> {
+        lock(&self.inner)
+            .items
+            .iter()
+            .max_by(|left, right| left.capture.id.cmp(&right.capture.id))
+            .map(|item| item.capture.clone())
+    }
+
     /// Newest-first page of the captures that satisfy `predicate`.
     ///
     /// The cursor keeps ids smaller than itself; the predicate is applied

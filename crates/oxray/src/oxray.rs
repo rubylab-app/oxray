@@ -137,6 +137,31 @@ impl Oxray {
         self.inner.redactor.apply(capture);
     }
 
+    /// The stored capture with this `id`, or None.
+    ///
+    /// `id` is the value of the `x-oxray-id` response header. A capture is
+    /// stored when the response body has been read to the end or dropped, so
+    /// a test reads the body first. Returns None in [`Mode::Disabled`], for
+    /// an unknown id, and once the capture has been evicted.
+    pub fn capture(&self, id: &str) -> Option<Capture> {
+        if self.inner.mode == Mode::Disabled {
+            return None;
+        }
+        self.inner.store.get(id)
+    }
+
+    /// The newest stored capture (the greatest id), or None.
+    ///
+    /// A capture is stored when the response body has been read to the end or
+    /// dropped, so a test reads the body first. Returns None in
+    /// [`Mode::Disabled`] and when the store is empty.
+    pub fn latest_capture(&self) -> Option<Capture> {
+        if self.inner.mode == Mode::Disabled {
+            return None;
+        }
+        self.inner.store.latest()
+    }
+
     pub(crate) fn store_capture(&self, mut capture: Capture) {
         if self.inner.fail_redact.load(Ordering::Relaxed) {
             self.warn_once(
