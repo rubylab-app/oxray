@@ -1,0 +1,90 @@
+---
+source: crates/oxray/tests/markdown.rs
+expression: capture.markdown()
+---
+## POST /webhooks/{psp} → 500 in 812 ms
+- Captured: 2026-11-04T21:14:03.412Z · id 0193f2c4-7a1e-7c3d-9f42-6b1d2e8a51c7
+- Route: /webhooks/{psp} (path /webhooks/acme)
+- Redacted: 1 value
+
+### Request
+```http
+content-type: application/json
+```
+
+```json
+{
+  "password": "[redacted]"
+}
+```
+
+### Response
+```http
+content-type: text/plain
+```
+
+```text
+ok
+```
+
+### Queries (1 execution, 1 distinct, 1 N+1 group)
+1. `select 1` · 30 µs · 1 row · **N+1**
+
+### Outgoing (1)
+1. POST http://127.0.0.1/charge → 502 in 50 µs
+
+### Errors (1)
+- panic at app.rs:10: boom
+
+### Logs (55)
+- INFO app: line 0
+- INFO app: line 1
+- INFO app: line 2
+- INFO app: line 3
+- INFO app: line 4
+- INFO app: line 5
+- INFO app: line 6
+- INFO app: line 7
+- INFO app: line 8
+- INFO app: line 9
+- INFO app: line 10
+- INFO app: line 11
+- INFO app: line 12
+- INFO app: line 13
+- INFO app: line 14
+- INFO app: line 15
+- INFO app: line 16
+- INFO app: line 17
+- INFO app: line 18
+- INFO app: line 19
+- INFO app: line 20
+- INFO app: line 21
+- INFO app: line 22
+- INFO app: line 23
+- INFO app: line 24
+- INFO app: line 25
+- INFO app: line 26
+- INFO app: line 27
+- INFO app: line 28
+- INFO app: line 29
+- INFO app: line 30
+- INFO app: line 31
+- INFO app: line 32
+- INFO app: line 33
+- INFO app: line 34
+- INFO app: line 35
+- INFO app: line 36
+- INFO app: line 37
+- INFO app: line 38
+- INFO app: line 39
+- INFO app: line 40
+- INFO app: line 41
+- INFO app: line 42
+- INFO app: line 43
+- INFO app: line 44
+- INFO app: line 45
+- INFO app: line 46
+- INFO app: line 47
+- INFO app: line 48
+- INFO app: line 49
+…and 5 more

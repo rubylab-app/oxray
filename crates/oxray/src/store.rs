@@ -85,8 +85,20 @@ impl MemoryStore {
             .map(|item| item.capture.clone())
     }
 
-    /// Newest-first page.
-    pub fn page(&self, cursor: Option<&str>, limit: usize) -> (Vec<Capture>, Option<String>) {
+    /// Newest-first page of the captures that satisfy `predicate`.
+    ///
+    /// The cursor keeps ids smaller than itself; the predicate is applied
+    /// before `limit`, and `next_cursor` is the id of the last returned item
+    /// when more matching items remain.
+    pub fn page<P>(
+        &self,
+        cursor: Option<&str>,
+        limit: usize,
+        predicate: P,
+    ) -> (Vec<Capture>, Option<String>)
+    where
+        P: Fn(&Capture) -> bool,
+    {
         let state = lock(&self.inner);
         let mut ids: Vec<Capture> = state
             .items
@@ -97,6 +109,7 @@ impl MemoryStore {
         if let Some(cursor) = cursor {
             ids.retain(|capture| capture.id.as_str() < cursor);
         }
+        ids.retain(|capture| predicate(capture));
         let limit = limit.clamp(1, 500);
         let has_more = ids.len() > limit;
         ids.truncate(limit);

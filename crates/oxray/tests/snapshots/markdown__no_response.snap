@@ -1,0 +1,34 @@
+---
+source: crates/oxray/tests/markdown.rs
+expression: capture.markdown()
+---
+## POST /webhooks/{psp} → no response in 812 ms
+- Captured: 2026-11-04T21:14:03.412Z · id 0193f2c4-7a1e-7c3d-9f42-6b1d2e8a51c7
+- Route: /webhooks/{psp} (path /webhooks/acme)
+- Redacted: 1 value
+
+### Request
+```http
+content-type: application/json
+```
+
+```json
+{
+  "password": "[redacted]"
+}
+```
+
+### Response
+No response: the handler panicked before responding.
+
+### Queries (1 execution, 1 distinct, 1 N+1 group)
+1. `select 1` · 30 µs · 1 row · **N+1**
+
+### Outgoing (1)
+1. POST http://127.0.0.1/charge → 502 in 50 µs
+
+### Errors (1)
+- panic at app.rs:10: boom
+
+### Logs (1)
+- INFO app: received

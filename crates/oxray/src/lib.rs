@@ -7,6 +7,7 @@ mod capture;
 mod collect;
 mod guard;
 mod layer;
+mod markdown;
 #[cfg(feature = "reqwest")]
 mod outgoing;
 mod oxray;

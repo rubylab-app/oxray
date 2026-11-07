@@ -16,6 +16,30 @@ use crate::ui;
 struct ListQuery {
     cursor: Option<String>,
     limit: Option<usize>,
+    failed: Option<bool>,
+    status: Option<String>,
+    after: Option<String>,
+}
+
+/// How the `status` filter matches a capture.
+#[derive(Clone, Copy, Debug)]
+enum StatusFilter {
+    /// An exact status code.
+    Code(u16),
+    /// A status class digit (`1`..=`5`), matched as `status / 100`.
+    Class(u16),
+}
+
+/// Parses `status` as an exact code (`500`) or a class (`5xx`).
+fn parse_status(raw: &str) -> Option<StatusFilter> {
+    if let Some(digit) = raw.strip_suffix("xx") {
+        let byte = digit.as_bytes();
+        if byte.len() == 1 && matches!(byte[0], b'1'..=b'5') {
+            return Some(StatusFilter::Class(u16::from(byte[0] - b'0')));
+        }
+        return None;
+    }
+    raw.parse::<u16>().ok().map(StatusFilter::Code)
 }
 
 /// Router for this handle.
@@ -29,6 +53,7 @@ pub fn router(oxray: Oxray) -> Router {
         Router::new()
             .route("/api/captures", get(list))
             .route("/api/captures/{id}", get(detail))
+            .route("/api/captures/{id}/markdown", get(markdown))
             .route("/api/meta", get(meta))
             .fallback(ui::spa)
             .layer(axum::middleware::from_fn_with_state(
@@ -71,18 +96,78 @@ async fn guard_layer(
     next.run(request).await
 }
 
-async fn list(State(oxray): State<Oxray>, Query(query): Query<ListQuery>) -> Json<CapturePage> {
+async fn list(State(oxray): State<Oxray>, Query(query): Query<ListQuery>) -> Response {
+    let status_filter = match query.status.as_deref().map(parse_status) {
+        Some(Some(filter)) => Some(filter),
+        Some(None) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+                "status must be a code like 500 or a class like 5xx",
+            )
+                .into_response();
+        }
+        None => None,
+    };
+    let failed = query.failed;
+    let after = query.after.clone();
     let limit = query.limit.unwrap_or(100).clamp(1, 500);
-    let (captures, next_cursor) = oxray.inner.store.page(query.cursor.as_deref(), limit);
+    let (captures, next_cursor) = oxray.inner.store.page(
+        query.cursor.as_deref(),
+        limit,
+        |capture: &crate::Capture| {
+            if let Some(failed) = failed {
+                let is_failed = capture.flags.has_error || capture.status.is_none();
+                if is_failed != failed {
+                    return false;
+                }
+            }
+            if let Some(filter) = status_filter {
+                let matches = match filter {
+                    StatusFilter::Code(code) => capture.status == Some(code),
+                    StatusFilter::Class(digit) => {
+                        matches!(capture.status, Some(status) if status / 100 == digit)
+                    }
+                };
+                if !matches {
+                    return false;
+                }
+            }
+            if let Some(after) = &after
+                && capture.id.as_str() <= after.as_str()
+            {
+                return false;
+            }
+            true
+        },
+    );
     Json(CapturePage {
         items: captures.iter().map(|capture| capture.summary()).collect(),
         next_cursor,
     })
+    .into_response()
 }
 
 async fn detail(State(oxray): State<Oxray>, Path(id): Path<String>) -> Response {
     match oxray.inner.store.get(&id) {
         Some(capture) => Json(capture).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+            format!("Capture {id} is not in the store"),
+        )
+            .into_response(),
+    }
+}
+
+async fn markdown(State(oxray): State<Oxray>, Path(id): Path<String>) -> Response {
+    match oxray.inner.store.get(&id) {
+        Some(capture) => (
+            StatusCode::OK,
+            [(header::CONTENT_TYPE, "text/markdown; charset=utf-8")],
+            capture.markdown(),
+        )
+            .into_response(),
         None => (
             StatusCode::NOT_FOUND,
             [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
