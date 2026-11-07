@@ -1,11 +1,11 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import { installCaptures, installTheme } from "./support";
+import { detailHeading, installCaptures, installTheme } from "./support";
 
 function detailError(page: Page) {
   return page
     .getByRole("region", { name: "Request", exact: true })
-    .getByText("Couldn't load captures. Retrying…");
+    .getByText("Couldn't load this capture. Retrying…");
 }
 
 async function failDetails(page: Page): Promise<void> {
@@ -94,7 +94,7 @@ test("enter activates controls and the first request", async ({
   await expect(
     page.getByRole("button", { name: `Theme: ${next}` }),
   ).toBeVisible();
-  await expect(page.getByRole("heading")).toHaveCount(0);
+  await expect(detailHeading(page)).toHaveCount(0);
   await page.locator("header p").first().click();
   await page.keyboard.press("Enter");
   await expect(
@@ -103,7 +103,7 @@ test("enter activates controls and the first request", async ({
   if (testInfo.project.name.endsWith("960")) {
     await page.getByRole("button", { name: "oxray", exact: true }).focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("heading")).toHaveCount(0);
+    await expect(detailHeading(page)).toHaveCount(0);
   }
 });
 

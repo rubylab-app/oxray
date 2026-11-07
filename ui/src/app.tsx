@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { loadCapture, loadCaptures, mountPrefix } from "./api";
 import { formatCount } from "./format/count";
 import type { Capture, CaptureSummary } from "./model/capture";
-import { headline } from "./model/capture";
+import { appendPage, headline, refreshFirstPage } from "./model/capture";
 import { captureIdFromPath, listPathname } from "./path";
+import { TOAST_EVENT } from "./pieces";
 import { RequestDetail } from "./request-detail";
 import { RequestList } from "./request-list";
 
@@ -14,13 +15,19 @@ type ListPhase =
   | { kind: "loading"; slow: boolean }
   | { kind: "empty" }
   | { kind: "error" }
-  | { kind: "ready"; items: CaptureSummary[] };
+  | {
+      kind: "ready";
+      items: CaptureSummary[];
+      cursor: string | null;
+      more: "idle" | "loading" | "failed";
+      moreAttempt: number;
+    };
 
 type DetailPhase =
   | { kind: "idle" }
-  | { kind: "loading"; slow: boolean }
+  | { kind: "loading"; slow: boolean; previous: Capture | null }
   | { kind: "missing" }
-  | { kind: "error" }
+  | { kind: "error"; previous: Capture | null }
   | { kind: "ready"; capture: Capture };
 
 const storageKey = "oxray.theme";
@@ -59,6 +66,45 @@ function apply(preference: Preference): void {
   localStorage.setItem(storageKey, preference);
 }
 
+function previousOf(detail: DetailPhase): Capture | null {
+  if (detail.kind === "ready") {
+    return detail.capture;
+  }
+  if (detail.kind === "loading" || detail.kind === "error") {
+    return detail.previous;
+  }
+  return null;
+}
+
+// While the next capture loads, the one on screen stays, so moving with j/k
+// does not blank the panel. A capture that is only being refreshed stays even
+// when its reload is slow or fails.
+function detailView(
+  detail: DetailPhase,
+  id: string | null,
+): {
+  phase: "idle" | "loading" | "slow" | "missing" | "error" | "ready";
+  capture: Capture | null;
+} {
+  if (detail.kind === "idle" || detail.kind === "missing") {
+    return { phase: detail.kind, capture: null };
+  }
+  if (detail.kind === "ready") {
+    return { phase: "ready", capture: detail.capture };
+  }
+  const previous = detail.previous;
+  const same = previous !== null && previous.id === id;
+  if (detail.kind === "error") {
+    return same
+      ? { phase: "ready", capture: previous }
+      : { phase: "error", capture: null };
+  }
+  if (previous !== null && (same || !detail.slow)) {
+    return { phase: "ready", capture: previous };
+  }
+  return { phase: detail.slow ? "slow" : "loading", capture: null };
+}
+
 export function App() {
   const [preference, setPreference] = useState<Preference>(readPreference);
   const [pathname, setPathname] = useState(() => window.location.pathname);
@@ -73,13 +119,15 @@ export function App() {
     kind: "loading",
     slow: false,
   });
+  const [offline, setOffline] = useState(false);
   const [detail, setDetail] = useState<DetailPhase>({ kind: "idle" });
   const [active, setActive] = useState<number | null>(null);
   const [focusRow, setFocusRow] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [toast, setToast] = useState<string | null>(null);
   const id = captureIdFromPath(pathname);
-  const view = useRef({ list, active, wide, id });
-  view.current = { list, active, wide, id };
+  const view = useRef({ list, active, wide, id, offline });
+  view.current = { list, active, wide, id, offline };
 
   useEffect(() => {
     apply(preference);
@@ -118,6 +166,34 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 15_000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    let timer = 0;
+    const onToast = (event: Event) => {
+      if (!(event instanceof CustomEvent) || typeof event.detail !== "string") {
+        return;
+      }
+      setToast(event.detail);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        setToast(null);
+      }, 2000);
+    };
+    window.addEventListener(TOAST_EVENT, onToast);
+    return () => {
+      window.removeEventListener(TOAST_EVENT, onToast);
+      window.clearTimeout(timer);
+    };
+  }, []);
+
+  useEffect(() => {
     const controller = new AbortController();
     let activeLoad = true;
     const slowTimer = window.setTimeout(() => {
@@ -142,14 +218,35 @@ export function App() {
         }
         setNowMs(Date.now());
         setAttempt(0);
-        if (page.items.length === 0) {
-          setList({ kind: "empty" });
-          return;
+        if (view.current.offline) {
+          setOffline(false);
+          setDetailToken((value) => value + 1);
         }
-        setList({ kind: "ready", items: page.items });
+        setList((current) => {
+          if (page.items.length === 0) {
+            return { kind: "empty" };
+          }
+          const loaded =
+            current.kind === "ready"
+              ? refreshFirstPage(current, page)
+              : { items: page.items, cursor: page.next_cursor };
+          const same =
+            current.kind === "ready" && loaded.cursor === current.cursor;
+          return {
+            kind: "ready",
+            ...loaded,
+            more: same ? current.more : "idle",
+            moreAttempt: same ? current.moreAttempt : 0,
+          };
+        });
       },
       () => {
         if (!activeLoad || controller.signal.aborted) {
+          return;
+        }
+        const shown = view.current.list.kind;
+        if (shown === "ready" || shown === "empty") {
+          setOffline(true);
           return;
         }
         setList({ kind: "error" });
@@ -163,7 +260,7 @@ export function App() {
   }, [reloadToken]);
 
   useEffect(() => {
-    if (list.kind !== "empty") {
+    if (list.kind !== "empty" || offline) {
       return;
     }
     const timer = window.setInterval(() => {
@@ -172,10 +269,11 @@ export function App() {
     return () => {
       window.clearInterval(timer);
     };
-  }, [list.kind]);
+  }, [list.kind, offline]);
 
+  const failing = list.kind === "error" || offline;
   useEffect(() => {
-    if (list.kind !== "error") {
+    if (!failing) {
       return;
     }
     const delay = Math.min(8000, 1000 * 2 ** attempt);
@@ -186,7 +284,28 @@ export function App() {
     return () => {
       window.clearTimeout(timer);
     };
-  }, [list.kind, attempt]);
+  }, [failing, attempt]);
+
+  // A failing next page retries on its own backoff. It does not mean the app
+  // is unreachable, so it never touches the first page or the offline notice.
+  const moreFailed = list.kind === "ready" && list.more === "failed";
+  const moreAttempt = list.kind === "ready" ? list.moreAttempt : 0;
+  useEffect(() => {
+    if (!moreFailed) {
+      return;
+    }
+    const delay = Math.min(8000, 1000 * 2 ** Math.max(0, moreAttempt - 1));
+    const timer = window.setTimeout(() => {
+      setList((current) =>
+        current.kind === "ready" && current.more === "failed"
+          ? { ...current, more: "idle" }
+          : current,
+      );
+    }, delay);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [moreFailed, moreAttempt]);
 
   useEffect(() => {
     setDetailAttempt(0);
@@ -218,10 +337,14 @@ export function App() {
         return;
       }
       setDetail((current) =>
-        current.kind === "loading" ? { kind: "loading", slow: true } : current,
+        current.kind === "loading" ? { ...current, slow: true } : current,
       );
     }, 300);
-    setDetail({ kind: "loading", slow: false });
+    setDetail((current) => ({
+      kind: "loading",
+      slow: false,
+      previous: previousOf(current),
+    }));
     void loadCapture(id, controller.signal).then(
       (capture) => {
         if (!activeLoad) {
@@ -236,7 +359,10 @@ export function App() {
         if (!activeLoad || controller.signal.aborted) {
           return;
         }
-        setDetail({ kind: "error" });
+        setDetail((current) => ({
+          kind: "error",
+          previous: previousOf(current),
+        }));
       },
     );
     return () => {
@@ -256,6 +382,18 @@ export function App() {
     }
   }, [id, list]);
 
+  const shown = detailView(detail, id);
+  const opened = id === null ? null : shown.capture;
+
+  useEffect(() => {
+    if (opened === null) {
+      document.title = "Oxray";
+      return;
+    }
+    const status = opened.status === null ? "No response" : opened.status;
+    document.title = `${status} ${opened.method} ${opened.matched_path ?? opened.path} · Oxray`;
+  }, [opened]);
+
   function go(path: string): void {
     if (window.location.pathname !== path) {
       window.history.pushState(null, "", path);
@@ -265,6 +403,49 @@ export function App() {
 
   function detailPath(captureId: string): string {
     return `${mountPrefix()}/r/${encodeURIComponent(captureId)}`;
+  }
+
+  function refresh(): void {
+    setReloadToken((value) => value + 1);
+    setDetailToken((value) => value + 1);
+  }
+
+  function loadMore(): void {
+    const state = view.current.list;
+    if (
+      state.kind !== "ready" ||
+      state.cursor === null ||
+      state.more !== "idle"
+    ) {
+      return;
+    }
+    const cursor = state.cursor;
+    setList({ ...state, more: "loading" });
+    void loadCaptures(cursor, new AbortController().signal).then(
+      (page) => {
+        setList((current) =>
+          current.kind === "ready" && current.cursor === cursor
+            ? {
+                kind: "ready",
+                ...appendPage(current, page),
+                more: "idle",
+                moreAttempt: 0,
+              }
+            : current,
+        );
+      },
+      () => {
+        setList((current) =>
+          current.kind === "ready" && current.cursor === cursor
+            ? {
+                ...current,
+                more: "failed",
+                moreAttempt: current.moreAttempt + 1,
+              }
+            : current,
+        );
+      },
+    );
   }
 
   function choose(index: number): void {
@@ -322,8 +503,7 @@ export function App() {
       const state = view.current;
       if (event.key === "r" && state.list.kind === "ready") {
         event.preventDefault();
-        setReloadToken((value) => value + 1);
-        setDetailToken((value) => value + 1);
+        refresh();
         return;
       }
       if (event.key === "Escape" && state.id !== null) {
@@ -370,11 +550,14 @@ export function App() {
     list.kind === "ready" || list.kind === "empty"
       ? headline(list.kind === "ready" ? list.items : [], nowMs)
       : null;
+  const more = list.kind === "ready" && list.cursor !== null;
   const label = labels[preference];
   const Icon =
     preference === "dark" ? Moon : preference === "light" ? Sun : Monitor;
   const showList = wide || id === null;
   const showDetail = wide || id !== null;
+  const control =
+    "inline-flex h-7 w-7 items-center justify-center rounded-[6px] border border-control-border bg-bg text-text-2 hover:bg-control-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
   return (
     <div class="flex h-dvh min-h-0 flex-col overflow-hidden bg-bg text-[16px] leading-[24px] font-normal text-text">
@@ -400,8 +583,9 @@ export function App() {
             <p class="truncate text-[13px] leading-[20px] text-text-2">
               <span class="font-mono text-[13px] leading-[20px] text-text tabular-nums">
                 {formatCount(counts.requests)}
+                {more ? "+" : ""}
               </span>
-              {" requests"}
+              {counts.requests === 1 && !more ? " request" : " requests"}
               {counts.failed > 0 ? (
                 <>
                   {" · "}
@@ -415,38 +599,43 @@ export function App() {
           )}
         </div>
         <div class="flex shrink-0 items-center gap-2">
+          <p
+            role="status"
+            class="truncate text-[13px] leading-[20px] text-text-2"
+          >
+            {offline ? "Can't reach the app. Retrying…" : ""}
+          </p>
           {list.kind === "ready" ? (
             <button
               type="button"
-              class="inline-flex h-7 w-7 items-center justify-center rounded-[6px] border border-control-border bg-bg text-text-2 hover:bg-control-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              class={control}
               aria-label="Refresh"
-              onClick={() => {
-                setReloadToken((value) => value + 1);
-                setDetailToken((value) => value + 1);
-              }}
+              title="Refresh (r)"
+              onClick={refresh}
             >
               <RefreshCw size={16} strokeWidth={1.5} aria-hidden="true" />
             </button>
           ) : null}
           <button
             type="button"
-            class="inline-flex h-7 items-center gap-2 rounded-[6px] border border-control-border bg-bg px-2 text-[13px] leading-[20px] font-medium text-text hover:bg-control-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            class={control}
             aria-label={`Theme: ${label}`}
+            title={`Theme: ${label} (t)`}
             onClick={() => {
               setPreference(nextPreference[preference]);
             }}
           >
             <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
-            {label}
           </button>
         </div>
       </header>
-      <div class="flex min-h-0 flex-1">
+      <main class="flex min-h-0 flex-1">
         {showList ? (
           <section
             aria-label="Requests"
             class={`flex min-h-0 min-w-0 flex-col ${wide ? "w-[44%] min-w-[560px] border-r border-border" : "w-full"}`}
           >
+            <h1 class="sr-only">Requests</h1>
             <RequestList
               phase={
                 list.kind === "loading"
@@ -456,6 +645,7 @@ export function App() {
                   : list.kind
               }
               items={list.kind === "ready" ? list.items : []}
+              hasMore={more}
               active={active}
               nowMs={nowMs}
               focusRow={focusRow}
@@ -463,6 +653,7 @@ export function App() {
                 setFocusRow(false);
                 choose(index);
               }}
+              onNearEnd={loadMore}
             />
           </section>
         ) : null}
@@ -473,15 +664,10 @@ export function App() {
             class="flex min-h-0 min-w-0 flex-1 flex-col"
           >
             <RequestDetail
-              phase={
-                detail.kind === "loading"
-                  ? detail.slow
-                    ? "slow"
-                    : "loading"
-                  : detail.kind
-              }
-              capture={detail.kind === "ready" ? detail.capture : null}
+              phase={shown.phase}
+              capture={shown.capture}
               nowMs={nowMs}
+              single={!wide}
               listHref={listPathname(pathname)}
               onBack={() => {
                 go(listPathname(pathname));
@@ -489,6 +675,17 @@ export function App() {
             />
           </section>
         ) : null}
+      </main>
+      <div
+        role="status"
+        data-floating
+        class={
+          toast === null
+            ? "sr-only"
+            : "pointer-events-none fixed bottom-6 left-1/2 -translate-x-1/2 rounded-[8px] bg-raised px-3 py-2 text-[13px] leading-[20px] text-text shadow-raised"
+        }
+      >
+        {toast ?? ""}
       </div>
     </div>
   );

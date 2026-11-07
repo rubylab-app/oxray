@@ -150,19 +150,57 @@ export function headline(
   nowMs: number,
 ): { requests: number; failed: number } {
   const cutoff = nowMs - 5 * 60 * 1000;
-  let requests = 0;
   let failed = 0;
   for (const item of items) {
     const started = Date.parse(item.started_at);
-    if (!Number.isFinite(started) || started < cutoff) {
-      continue;
-    }
-    requests += 1;
-    if (isFailure(item)) {
+    if (Number.isFinite(started) && started >= cutoff && isFailure(item)) {
       failed += 1;
     }
   }
-  return { requests, failed };
+  return { requests: items.length, failed };
+}
+
+export type LoadedPages = {
+  items: CaptureSummary[];
+  cursor: string | null;
+};
+
+export function appendPage(
+  loaded: LoadedPages,
+  page: CapturePage,
+): LoadedPages {
+  const seen = new Set(loaded.items.map((item) => item.id));
+  return {
+    items: [
+      ...loaded.items,
+      ...page.items.filter((item) => !seen.has(item.id)),
+    ],
+    cursor: page.next_cursor,
+  };
+}
+
+// A refresh only fetches the first page. Pages the user already scrolled
+// through stay, so the list does not shrink under them.
+export function refreshFirstPage(
+  loaded: LoadedPages,
+  page: CapturePage,
+): LoadedPages {
+  const last = page.items.at(-1);
+  if (page.next_cursor === null || last === undefined) {
+    return { items: page.items, cursor: page.next_cursor };
+  }
+  const overlap = loaded.items.findIndex((item) => item.id === last.id);
+  if (overlap < 0) {
+    return { items: page.items, cursor: page.next_cursor };
+  }
+  const fresh = new Set(page.items.map((item) => item.id));
+  const older = loaded.items
+    .slice(overlap + 1)
+    .filter((item) => !fresh.has(item.id));
+  return {
+    items: [...page.items, ...older],
+    cursor: older.length === 0 ? page.next_cursor : loaded.cursor,
+  };
 }
 
 export function isFailure(item: CaptureSummary): boolean {

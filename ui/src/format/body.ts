@@ -32,3 +32,12 @@ export function bodyNotice(body: BodyNoticeInput): string | null {
   }
   return `Body omitted (${reason}, ${size})`;
 }
+
+export function textLines(text: string): string[] {
+  const body = text.endsWith("\r\n")
+    ? text.slice(0, -2)
+    : text.endsWith("\n")
+      ? text.slice(0, -1)
+      : text;
+  return body.split(/\r?\n/);
+}

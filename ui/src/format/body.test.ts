@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { bodyNotice } from "./body";
+import { bodyNotice, textLines } from "./body";
 
 test("describes truncated, binary, and unread bodies", () => {
   expect(
@@ -32,4 +32,11 @@ test("describes truncated, binary, and unread bodies", () => {
       omitted_reason: "not_read_by_app",
     }),
   ).toBe("The app did not read this body (1.2 KB)");
+});
+
+test("splits text into lines without a phantom last line", () => {
+  expect(textLines("a\n    b\n")).toEqual(["a", "    b"]);
+  expect(textLines("a\r\nb")).toEqual(["a", "b"]);
+  expect(textLines("a\n\n")).toEqual(["a", ""]);
+  expect(textLines("one")).toEqual(["one"]);
 });

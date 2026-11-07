@@ -1,3 +1,4 @@
+import { ArrowLeft } from "lucide-preact";
 import { useState } from "preact/hooks";
 import { bodyNotice } from "./format/body";
 import { formatCount } from "./format/count";
@@ -5,8 +6,14 @@ import { formatDuration } from "./format/duration";
 import { tokenizeSql } from "./format/sql";
 import { formatAbsolute, formatRelative } from "./format/time";
 import { JsonOrText } from "./json-view";
-import type { Capture, Message, QueryEntry } from "./model/capture";
-import { FieldList, RouteLabel, Section, StatusMark } from "./pieces";
+import type {
+  BodyCapture,
+  Capture,
+  Message,
+  OutgoingCall,
+  QueryEntry,
+} from "./model/capture";
+import { copyText, FieldList, RouteLabel, Section, StatusMark } from "./pieces";
 
 type Tab = "request" | "response" | "queries" | "outgoing" | "logs";
 
@@ -14,6 +21,7 @@ export function RequestDetail(props: {
   phase: "idle" | "loading" | "slow" | "missing" | "error" | "ready";
   capture: Capture | null;
   nowMs: number;
+  single: boolean;
   listHref: string;
   onBack: () => void;
 }) {
@@ -21,7 +29,10 @@ export function RequestDetail(props: {
     return (
       <div class="flex flex-1 flex-col items-center justify-center gap-2 px-6">
         <p class="text-[14px] leading-[20px] text-text">Select a request</p>
-        <p class="text-[13px] leading-[20px] text-text-3">Press Enter</p>
+        <p class="text-[13px] leading-[20px] text-text-3">
+          <kbd class="font-mono">j</kbd>/<kbd class="font-mono">k</kbd> to move
+          · <kbd class="font-mono">Enter</kbd> to open
+        </p>
       </div>
     );
   }
@@ -58,14 +69,29 @@ export function RequestDetail(props: {
   if (props.phase === "error" || props.capture === null) {
     return (
       <p class="px-6 py-5 text-[14px] leading-[20px] text-text">
-        Couldn't load captures. Retrying…
+        Couldn't load this capture. Retrying…
       </p>
     );
   }
-  return <ReadyDetail capture={props.capture} nowMs={props.nowMs} />;
+  return (
+    <ReadyDetail
+      key={props.capture.id}
+      capture={props.capture}
+      nowMs={props.nowMs}
+      single={props.single}
+      listHref={props.listHref}
+      onBack={props.onBack}
+    />
+  );
 }
 
-function ReadyDetail(props: { capture: Capture; nowMs: number }) {
+function ReadyDetail(props: {
+  capture: Capture;
+  nowMs: number;
+  single: boolean;
+  listHref: string;
+  onBack: () => void;
+}) {
   const [tab, setTab] = useState<Tab>("request");
   const capture = props.capture;
   const tabs: Array<{ id: Tab; label: string; count: number | null }> = [
@@ -79,6 +105,21 @@ function ReadyDetail(props: { capture: Capture; nowMs: number }) {
     <div class="flex min-h-0 flex-1 flex-col">
       <div class="px-6 pt-5 pb-4">
         <div class="flex items-start gap-3">
+          {props.single ? (
+            <a
+              class="-ml-2 inline-flex h-7 shrink-0 items-center gap-1 rounded-[6px] px-2 text-[13px] leading-[20px] font-medium text-text-2 hover:bg-control-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              href={props.listHref}
+              aria-label="Back to requests"
+              title="Back to requests (Esc)"
+              onClick={(event) => {
+                event.preventDefault();
+                props.onBack();
+              }}
+            >
+              <ArrowLeft size={16} strokeWidth={1.5} aria-hidden="true" />
+              <span class="hidden min-[960px]:inline">Requests</span>
+            </a>
+          ) : null}
           <span class="font-mono text-[14px] leading-[20px] font-semibold text-text-2">
             {capture.method}
           </span>
@@ -190,17 +231,12 @@ function CopyId(props: { id: string }) {
       type="button"
       class="inline-flex h-7 items-center rounded-[6px] px-2 text-[12px] leading-[16px] font-medium text-text-2 hover:bg-control-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       onClick={() => {
-        void navigator.clipboard.writeText(props.id).then(
-          () => {
-            setCopied(true);
-            window.setTimeout(() => {
-              setCopied(false);
-            }, 2000);
-          },
-          () => {
+        copyText(props.id, "id", () => {
+          setCopied(true);
+          window.setTimeout(() => {
             setCopied(false);
-          },
-        );
+          }, 2000);
+        });
       }}
     >
       {copied ? "Copied" : "Copy id"}
@@ -208,16 +244,28 @@ function CopyId(props: { id: string }) {
   );
 }
 
+function BodyView(props: { body: BodyCapture }) {
+  const notice = bodyNotice(props.body);
+  const text = props.body.text;
+  const shown = text === null || text.length === 0 ? null : text;
+  if (notice === null && shown === null) {
+    return <p class="text-[13px] leading-[20px] text-text-3">No body</p>;
+  }
+  return (
+    <>
+      {notice === null ? null : (
+        <p class="text-[13px] leading-[20px] text-text-2">{notice}</p>
+      )}
+      {shown === null ? null : <JsonOrText text={shown} />}
+    </>
+  );
+}
+
 function MessageView(props: { message: Message; query: string | null }) {
-  const notice = bodyNotice(props.message.body);
-  const text = props.message.body.text;
   return (
     <div class="flex flex-col gap-5">
       <Section title="Body">
-        {notice === null ? null : (
-          <p class="text-[13px] leading-[20px] text-text-2">{notice}</p>
-        )}
-        {text === null || text.length === 0 ? null : <JsonOrText text={text} />}
+        <BodyView body={props.message.body} />
       </Section>
       {props.query === null ? null : (
         <Section title="Query params">
@@ -318,13 +366,20 @@ function OutgoingList(props: { capture: Capture }) {
               <span class="min-w-0 flex-1 truncate font-mono text-[13px] leading-[20px] text-text">
                 {call.url}
               </span>
-              <StatusMark status={call.status} phrase={false} />
+              <OutgoingStatus call={call} />
               <span class="font-mono text-[12px] leading-[16px] text-text-3 tabular-nums">
                 {formatDuration(call.duration_us)}
               </span>
             </button>
             {expanded ? (
               <div class="flex flex-col gap-4 pt-3">
+                {call.error === null ? null : (
+                  <Section title="Error">
+                    <p class="font-mono text-[13px] leading-[20px] break-words text-text">
+                      {call.error}
+                    </p>
+                  </Section>
+                )}
                 <Section title="Request headers">
                   <FieldList
                     rows={call.request.headers.map((header) => ({
@@ -334,27 +389,24 @@ function OutgoingList(props: { capture: Capture }) {
                     empty="No headers"
                   />
                 </Section>
-                {call.request.body.text === null ? null : (
-                  <Section title="Request body">
-                    <JsonOrText text={call.request.body.text} />
-                  </Section>
-                )}
+                <Section title="Request body">
+                  <BodyView body={call.request.body} />
+                </Section>
                 {call.response === null ? null : (
-                  <Section title="Response headers">
-                    <FieldList
-                      rows={call.response.headers.map((header) => ({
-                        name: header.name,
-                        value: header.value,
-                      }))}
-                      empty="No headers"
-                    />
-                  </Section>
-                )}
-                {call.response?.body.text === null ||
-                call.response?.body.text === undefined ? null : (
-                  <Section title="Response body">
-                    <JsonOrText text={call.response.body.text} />
-                  </Section>
+                  <>
+                    <Section title="Response headers">
+                      <FieldList
+                        rows={call.response.headers.map((header) => ({
+                          name: header.name,
+                          value: header.value,
+                        }))}
+                        empty="No headers"
+                      />
+                    </Section>
+                    <Section title="Response body">
+                      <BodyView body={call.response.body} />
+                    </Section>
+                  </>
                 )}
               </div>
             ) : null}
@@ -362,6 +414,18 @@ function OutgoingList(props: { capture: Capture }) {
         );
       })}
     </div>
+  );
+}
+
+function OutgoingStatus(props: { call: OutgoingCall }) {
+  if (props.call.status !== null) {
+    return <StatusMark status={props.call.status} phrase={false} />;
+  }
+  const reason = props.call.error ?? "No response";
+  return (
+    <span class="font-mono text-[13px] leading-[20px] text-err" title={reason}>
+      error
+    </span>
   );
 }
 

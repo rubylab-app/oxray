@@ -242,7 +242,34 @@
     "mode": "dev",
     "logs": [],
     "queries": [],
-    "outgoing": [],
+    "outgoing": [
+      {
+        "offset_us": 300,
+        "duration_us": 2100,
+        "method": "POST",
+        "url": "http://127.0.0.1:4011/refunds",
+        "status": null,
+        "request": {
+          "headers": [
+            {
+              "name": "content-type",
+              "value": "text/plain"
+            }
+          ],
+          "body": {
+            "content_type": "text/plain",
+            "size_bytes": 44,
+            "captured_bytes": 44,
+            "encoding": "utf8",
+            "text": "refund:\n    id = rf_2042\n    amount = 12.00\n",
+            "truncated": false,
+            "omitted_reason": null
+          }
+        },
+        "response": null,
+        "error": "error sending request: connection refused (os error 61)"
+      }
+    ],
     "errors": [],
     "n_plus_one": [],
     "redactions": [],
@@ -276,6 +303,10 @@
         {
           "name": "content-type",
           "value": "application/json"
+        },
+        {
+          "name": "user-agent",
+          "value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 refunds-dashboard/4.2"
         }
       ],
       "body": {

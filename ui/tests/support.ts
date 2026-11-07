@@ -104,6 +104,12 @@ export async function prepare(page: Page, testInfo: TestInfo): Promise<void> {
   await installTheme(page, testInfo);
 }
 
+export function detailHeading(page: Page) {
+  return page
+    .getByRole("region", { name: "Request", exact: true })
+    .getByRole("heading", { level: 1 });
+}
+
 export async function fontsReady(page: Page): Promise<void> {
   await page.evaluate(async () => {
     await document.fonts.ready;

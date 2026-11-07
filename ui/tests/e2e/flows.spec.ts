@@ -50,3 +50,17 @@ test("a direct link opens the newest capture", async ({ page }, testInfo) => {
   const text = (await page.locator("body").textContent()) ?? "";
   expect(text).not.toContain(digits);
 });
+
+test("the inspector's own icon is served and never captured", async ({
+  page,
+}, testInfo) => {
+  await installTheme(page, testInfo);
+  await page.goto("/debug/oxray/");
+  await expect(page.getByText("/webhooks/{psp}").first()).toBeVisible();
+  const icon = await page.request.get("/debug/oxray/assets/favicon.svg");
+  expect(icon.status()).toBe(200);
+  expect(icon.headers()["content-type"]).toBe("image/svg+xml");
+  const response = await page.request.get("/debug/oxray/api/captures");
+  const body = (await response.json()) as { items: Array<{ path: string }> };
+  expect(body.items.some((item) => item.path === "/favicon.ico")).toBe(false);
+});

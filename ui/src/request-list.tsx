@@ -12,15 +12,20 @@ const INSTALL = `.with(oxray.tracing_layer())
 .layer(oxray.layer());`;
 
 const rowGrid =
-  "grid h-8 w-full grid-cols-[56px_64px_minmax(160px,1fr)_88px_96px] items-center gap-x-3 px-4 text-left @min-[680px]:grid-cols-[88px_56px_64px_minmax(160px,1fr)_88px_96px]";
+  "grid h-8 w-full grid-cols-[56px_64px_minmax(160px,1fr)_88px_96px] content-center items-baseline gap-x-3 px-4 text-left @min-[680px]:grid-cols-[88px_56px_64px_minmax(160px,1fr)_88px_96px]";
+
+const LOAD_AHEAD = 50;
+const SKELETON_ROWS = 3;
 
 export function RequestList(props: {
   phase: "loading" | "slow" | "empty" | "error" | "ready";
   items: CaptureSummary[];
+  hasMore: boolean;
   active: number | null;
   nowMs: number;
   focusRow: boolean;
   onChoose: (index: number) => void;
+  onNearEnd: () => void;
 }) {
   if (props.phase === "loading") {
     return <div class="min-h-0 flex-1" />;
@@ -63,24 +68,37 @@ export function RequestList(props: {
   return (
     <ReadyList
       items={props.items}
+      hasMore={props.hasMore}
       active={props.active}
       nowMs={props.nowMs}
       focusRow={props.focusRow}
       onChoose={props.onChoose}
+      onNearEnd={props.onNearEnd}
     />
   );
 }
 
 function ReadyList(props: {
   items: CaptureSummary[];
+  hasMore: boolean;
   active: number | null;
   nowMs: number;
   focusRow: boolean;
   onChoose: (index: number) => void;
+  onNearEnd: () => void;
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
-  const virtualizer = useRowVirtualizer(props.items.length, parentRef);
+  const virtualizer = useRowVirtualizer(
+    props.items.length + (props.hasMore ? SKELETON_ROWS : 0),
+    parentRef,
+  );
   const rows = virtualizer.getVirtualItems();
+  const lastRow = rows.at(-1)?.index ?? -1;
+  useEffect(() => {
+    if (props.hasMore && lastRow >= props.items.length - LOAD_AHEAD) {
+      props.onNearEnd();
+    }
+  }, [props.hasMore, props.items.length, props.onNearEnd, lastRow]);
   useEffect(() => {
     if (!props.focusRow || props.active === null) {
       return;
@@ -112,7 +130,16 @@ function ReadyList(props: {
           {rows.map((row) => {
             const item = props.items[row.index];
             if (item === undefined) {
-              return null;
+              return (
+                <div
+                  key={`skeleton-${row.index}`}
+                  aria-hidden="true"
+                  class="absolute top-0 left-0 flex h-8 w-full items-center px-4"
+                  style={{ transform: `translateY(${row.start}px)` }}
+                >
+                  <div class="h-3 w-full rounded-[6px] bg-surface" />
+                </div>
+              );
             }
             const selected = props.active === row.index;
             return (
@@ -132,11 +159,18 @@ function ReadyList(props: {
                   props.onChoose(row.index);
                 }}
               >
+                {selected ? (
+                  <span
+                    aria-hidden="true"
+                    class="absolute inset-y-0 left-0 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-accent"
+                  />
+                ) : null}
                 <span
                   class="hidden truncate font-mono text-[12px] leading-[16px] text-text-3 @min-[680px]:block"
                   title={formatAbsolute(item.started_at)}
                 >
                   {formatRelative(item.started_at, props.nowMs)}
+                  <span class="sr-only">, </span>
                 </span>
                 <span>
                   <StatusMark status={item.status} phrase={false} />
@@ -150,6 +184,7 @@ function ReadyList(props: {
                   large={false}
                 />
                 <span class="text-right font-mono text-[13px] leading-[20px] text-text tabular-nums">
+                  <span class="sr-only">, </span>
                   {formatDuration(item.duration_us)}
                 </span>
                 <Signals item={item} />
@@ -162,34 +197,32 @@ function ReadyList(props: {
   );
 }
 
-function Signals(props: { item: CaptureSummary }) {
-  const signals: Array<{
-    key: string;
-    label: string;
-    count: number | null;
-    icon: ComponentType<{ size: number; strokeWidth: number }>;
-  }> = [];
-  if (props.item.counts.queries > 0) {
+type Signal = {
+  key: string;
+  label: string;
+  count: number | null;
+  icon: ComponentType<{ size: number; strokeWidth: number }>;
+};
+
+function signalsOf(item: CaptureSummary): Signal[] {
+  const signals: Signal[] = [];
+  if (item.counts.queries > 0) {
     signals.push({
       key: "queries",
-      label: plural(props.item.counts.queries, "query", "queries"),
-      count: props.item.counts.queries,
+      label: plural(item.counts.queries, "query", "queries"),
+      count: item.counts.queries,
       icon: Database,
     });
   }
-  if (props.item.counts.outgoing > 0) {
+  if (item.counts.outgoing > 0) {
     signals.push({
       key: "outgoing",
-      label: plural(
-        props.item.counts.outgoing,
-        "outgoing call",
-        "outgoing calls",
-      ),
-      count: props.item.counts.outgoing,
+      label: plural(item.counts.outgoing, "outgoing call", "outgoing calls"),
+      count: item.counts.outgoing,
       icon: ArrowUpRight,
     });
   }
-  if (props.item.counts.redactions > 0) {
+  if (item.counts.redactions > 0) {
     signals.push({
       key: "redacted",
       label: "Redacted",
@@ -197,7 +230,7 @@ function Signals(props: { item: CaptureSummary }) {
       icon: EyeOff,
     });
   }
-  if (props.item.flags.truncated) {
+  if (item.flags.truncated) {
     signals.push({
       key: "truncated",
       label: "Truncated",
@@ -205,12 +238,18 @@ function Signals(props: { item: CaptureSummary }) {
       icon: Scissors,
     });
   }
+  return signals;
+}
+
+function Signals(props: { item: CaptureSummary }) {
+  const signals = signalsOf(props.item);
   const shown = signals.slice(0, 4);
   const extra = signals.length - shown.length;
   return (
-    <span class="flex items-center gap-1 overflow-hidden text-text-2">
+    <span class="flex items-center gap-1 self-center overflow-hidden text-text-2">
       {shown.map((signal) => {
         const Icon = signal.icon;
+        const spoken = `, ${signal.label}`;
         return (
           <span
             key={signal.key}
@@ -219,11 +258,14 @@ function Signals(props: { item: CaptureSummary }) {
           >
             <Icon size={14} strokeWidth={1.5} aria-hidden="true" />
             {signal.count === null ? null : (
-              <span class="font-mono text-[12px] leading-[16px] tabular-nums">
+              <span
+                aria-hidden="true"
+                class="font-mono text-[12px] leading-[16px] tabular-nums"
+              >
                 {signal.count}
               </span>
             )}
-            <span class="sr-only">{signal.label}</span>
+            <span class="sr-only">{spoken}</span>
           </span>
         );
       })}

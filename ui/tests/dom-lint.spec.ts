@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { domLintProblems } from "./dom-lint";
 import {
+  detailHeading,
   installCaptures,
   installFailure,
   installHang,
@@ -30,7 +31,7 @@ test("dom lint covers the canonical screens", async ({ page }, testInfo) => {
     "0193f2c4-7a1e-7c3d-9f42-6b1d2e8a51cb",
   ]) {
     await showCapture(page, id);
-    await expect(page.getByRole("heading").first()).toBeVisible();
+    await expect(detailHeading(page)).toBeVisible();
     if (id.endsWith("51cb")) {
       await page.getByRole("tab", { name: "Response" }).click();
     }

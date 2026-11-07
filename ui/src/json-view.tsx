@@ -1,13 +1,18 @@
 import { ChevronRight } from "lucide-preact";
 import { useState } from "preact/hooks";
+import { textLines } from "./format/body";
 import {
   countNodes,
+  isFullyMasked,
   isMasked,
   isObject,
   parseJsonText,
   previewString,
 } from "./json/tree";
 import { CopyButton, RedactedChip } from "./pieces";
+
+const inlineControl =
+  "rounded-[6px] hover:bg-control-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
 export function JsonOrText(props: { text: string }) {
   const parsed = parseJsonText(props.text);
@@ -19,8 +24,9 @@ export function JsonOrText(props: { text: string }) {
     <div class="relative">
       <CopyButton
         value={JSON.stringify(parsed.value, null, 2)}
-        label="Copy JSON"
-        class="absolute top-0 right-0 inline-flex h-7 w-7 items-center justify-center rounded-[6px] text-text-2 hover:bg-control-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        what="JSON"
+        quiet={false}
+        class="absolute top-0 right-0"
       />
       <div class="pr-10 font-mono text-[13px] leading-[20px]">
         <JsonNode
@@ -34,7 +40,7 @@ export function JsonOrText(props: { text: string }) {
 }
 
 function PlainText(props: { text: string }) {
-  const lines = props.text.split("\n");
+  const lines = textLines(props.text);
   return (
     <div class="font-mono text-[13px] leading-[20px]">
       {lines.map((line, index) => (
@@ -45,7 +51,7 @@ function PlainText(props: { text: string }) {
           <span class="w-8 shrink-0 text-right text-text-3 tabular-nums">
             {index + 1}
           </span>
-          <span class="min-w-0 text-text">
+          <span class="min-w-0 break-words whitespace-pre-wrap text-text">
             {line.length === 0 ? " " : line}
           </span>
         </div>
@@ -109,7 +115,7 @@ function JsonCollection(props: {
     return (
       <button
         type="button"
-        class="inline-flex items-center gap-1 text-left text-text-3"
+        class={`inline-flex items-center gap-1 text-left text-text-3 ${inlineControl}`}
         aria-expanded="false"
         onClick={() => {
           setOpen(true);
@@ -126,7 +132,7 @@ function JsonCollection(props: {
     <div>
       <button
         type="button"
-        class="inline-flex items-center gap-1 text-left text-text-3"
+        class={`inline-flex items-center gap-1 text-left text-text-3 ${inlineControl}`}
         aria-expanded="true"
         onClick={() => {
           setOpen(false);
@@ -158,7 +164,7 @@ function JsonCollection(props: {
         {hidden > 0 ? (
           <button
             type="button"
-            class="text-text-2"
+            class={`text-text-2 ${inlineControl}`}
             onClick={() => {
               setShown((value) => value + 20);
             }}
@@ -187,6 +193,9 @@ function JsonLeaf(props: { value: unknown }) {
 
 function JsonString(props: { value: string }) {
   const [expanded, setExpanded] = useState(false);
+  if (isFullyMasked(props.value)) {
+    return <RedactedChip spaced={false} />;
+  }
   const text = previewString(props.value, expanded);
   return (
     <span>
@@ -196,7 +205,7 @@ function JsonString(props: { value: string }) {
       {!expanded && props.value.length > 200 ? (
         <button
           type="button"
-          class="ml-2 text-text-2"
+          class={`ml-2 text-text-2 ${inlineControl}`}
           onClick={() => {
             setExpanded(true);
           }}
@@ -204,7 +213,7 @@ function JsonString(props: { value: string }) {
           show all
         </button>
       ) : null}
-      {isMasked(props.value) ? <RedactedChip /> : null}
+      {isMasked(props.value) ? <RedactedChip spaced /> : null}
     </span>
   );
 }

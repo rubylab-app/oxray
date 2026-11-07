@@ -38,6 +38,10 @@ export function isMasked(value: string): boolean {
   return value.includes("[redacted]") || value.includes("••••");
 }
 
+export function isFullyMasked(value: string): boolean {
+  return value === "[redacted]";
+}
+
 export function previewString(value: string, expanded: boolean): string {
   if (expanded || value.length <= 200) {
     return value;

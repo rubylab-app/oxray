@@ -1,6 +1,7 @@
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 import {
+  detailHeading,
   fontsReady,
   installCaptures,
   installFailure,
@@ -55,6 +56,22 @@ test("@visual error", async ({ page }, testInfo) => {
     page.getByText("Couldn't load captures. Retrying…"),
   ).toBeVisible();
   await shot(page, testInfo, "error");
+});
+
+test("@visual offline", async ({ page }, testInfo) => {
+  await prepare(page, testInfo);
+  await installCaptures(page);
+  await page.goto("./");
+  await expect(page.getByText("/webhooks/{psp}").first()).toBeVisible();
+  await page.route(
+    (url) => url.pathname.endsWith("/api/captures"),
+    async (route) => {
+      await route.abort();
+    },
+  );
+  await page.keyboard.press("r");
+  await expect(page.getByText("Can't reach the app. Retrying…")).toBeVisible();
+  await shot(page, testInfo, "offline");
 });
 
 test("@visual redacted", async ({ page }, testInfo) => {
@@ -127,5 +144,5 @@ async function openDetail(
   await prepare(page, testInfo);
   await installCaptures(page);
   await showCapture(page, id);
-  await expect(page.getByRole("heading").first()).toBeVisible();
+  await expect(detailHeading(page)).toBeVisible();
 }
