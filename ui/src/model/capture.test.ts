@@ -4,7 +4,9 @@ import type { CaptureSummary } from "./capture";
 import {
   appendPage,
   headline,
+  initialTab,
   parseCaptures,
+  queryTotals,
   refreshFirstPage,
   toSummary,
 } from "./capture";
@@ -13,7 +15,7 @@ const fixture = new URL("../../tests/fixtures/captures.json", import.meta.url);
 
 test("fixtures match capture v1 and their summaries", () => {
   const captures = parseCaptures(JSON.parse(readFileSync(fixture, "utf8")));
-  expect(captures).toHaveLength(8);
+  expect(captures).toHaveLength(9);
   const statuses = captures.map((capture) => capture.status);
   expect(statuses).toContain(200);
   expect(statuses).toContain(422);
@@ -50,7 +52,7 @@ test("fixtures match capture v1 and their summaries", () => {
   }
   const now = Date.parse("2026-11-04T21:15:00.000Z");
   expect(headline(captures.map(toSummary), now)).toEqual({
-    requests: 8,
+    requests: 9,
     failed: 2,
   });
 });
@@ -130,6 +132,37 @@ function summary(
     },
   };
 }
+
+test("a failure opens on the tab that shows its cause", () => {
+  const captures = parseCaptures(JSON.parse(readFileSync(fixture, "utf8")));
+  const byId = (suffix: string) => {
+    const found = captures.find((capture) => capture.id.endsWith(suffix));
+    if (found === undefined) {
+      throw new Error(`missing fixture ${suffix}`);
+    }
+    return found;
+  };
+  expect(initialTab(byId("51c7"))).toBe("response");
+  expect(initialTab(byId("51cb"))).toBe("response");
+  expect(initialTab(byId("51cf"))).toBe("logs");
+  expect(initialTab(byId("51c9"))).toBe("request");
+  expect(initialTab(byId("51c8"))).toBe("request");
+});
+
+test("query totals add up durations and cap the share", () => {
+  const captures = parseCaptures(JSON.parse(readFileSync(fixture, "utf8")));
+  const webhook = captures[0];
+  if (webhook === undefined) {
+    throw new Error("missing webhook fixture");
+  }
+  expect(queryTotals(webhook)).toEqual({
+    count: 4,
+    totalUs: 1_445,
+    share: 1_445 / 812_345,
+  });
+  expect(queryTotals({ ...webhook, duration_us: 1_000 }).share).toBe(1);
+  expect(queryTotals({ ...webhook, duration_us: 0 }).share).toBeNull();
+});
 
 test("rejects a capture without an id", () => {
   expect(() => parseCaptures([{}])).toThrow();

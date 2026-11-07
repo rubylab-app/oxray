@@ -203,6 +203,34 @@ export function refreshFirstPage(
   };
 }
 
+export type Tab = "request" | "response" | "queries" | "outgoing" | "logs";
+
+// Until the Error tab exists (M5), a failure opens where its cause is
+// visible: the response for a 5xx or a panic, the logs for an ERROR event.
+export function initialTab(capture: Capture): Tab {
+  if (capture.status === null || capture.status >= 500) {
+    return "response";
+  }
+  if (capture.logs.some((entry) => entry.level.toUpperCase() === "ERROR")) {
+    return "logs";
+  }
+  return "request";
+}
+
+export function queryTotals(capture: Capture): {
+  count: number;
+  totalUs: number;
+  share: number | null;
+} {
+  const totalUs = capture.queries.reduce(
+    (sum, query) => sum + query.duration_us,
+    0,
+  );
+  const share =
+    capture.duration_us > 0 ? Math.min(1, totalUs / capture.duration_us) : null;
+  return { count: capture.queries.length, totalUs, share };
+}
+
 export function isFailure(item: CaptureSummary): boolean {
   return (
     item.flags.has_error ||

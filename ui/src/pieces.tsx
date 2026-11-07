@@ -1,6 +1,7 @@
 import { Check, Copy } from "lucide-preact";
 import type { ComponentChildren } from "preact";
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
+import { formatCount } from "./format/count";
 import { statusPhrase, statusTone } from "./format/status";
 import { isFullyMasked, isMasked } from "./json/tree";
 
@@ -231,11 +232,20 @@ function FieldRow(props: { name: string; value: string }) {
   );
 }
 
-export function Section(props: { title: string; children: ComponentChildren }) {
+export function Section(props: {
+  title: string;
+  count: number | null;
+  children: ComponentChildren;
+}) {
   return (
     <section class="flex flex-col gap-2">
-      <h2 class="text-[16px] leading-[24px] font-medium text-text">
+      <h2 class="text-[13px] leading-[20px] font-semibold text-text">
         {props.title}
+        {props.count === null ? null : (
+          <span class="ml-2 font-mono text-[12px] leading-[16px] font-normal text-text-3 tabular-nums">
+            {formatCount(props.count)}
+          </span>
+        )}
       </h2>
       {props.children}
     </section>

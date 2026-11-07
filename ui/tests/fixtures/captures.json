@@ -616,5 +616,86 @@
       "streaming": false,
       "dropped_events": 0
     }
+  },
+  {
+    "schema_version": 1,
+    "query": "",
+    "mode": "dev",
+    "logs": [
+      {
+        "offset_us": 120,
+        "level": "INFO",
+        "target": "demo",
+        "message": "payout requested",
+        "fields": {
+          "amount": "80.00"
+        }
+      },
+      {
+        "offset_us": 29000,
+        "level": "ERROR",
+        "target": "demo",
+        "message": "ledger rejected the payout",
+        "fields": {
+          "reason": "insufficient funds",
+          "ledger": "main"
+        }
+      }
+    ],
+    "queries": [],
+    "outgoing": [],
+    "errors": [],
+    "n_plus_one": [],
+    "redactions": [],
+    "response": {
+      "headers": [
+        {
+          "name": "content-type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "content_type": "application/json",
+        "size_bytes": 30,
+        "captured_bytes": 30,
+        "encoding": "utf8",
+        "text": "{\"error\":\"insufficient_funds\"}",
+        "truncated": false,
+        "omitted_reason": null
+      }
+    },
+    "id": "0193f2c4-7a1e-7c3d-9f42-6b1d2e8a51cf",
+    "short_id": "2e8a51cf",
+    "started_at": "2026-11-04T17:00:00.000Z",
+    "duration_us": 31000,
+    "method": "POST",
+    "path": "/v1/payouts",
+    "matched_path": "/v1/payouts",
+    "status": 409,
+    "request": {
+      "headers": [
+        {
+          "name": "content-type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "content_type": "application/json",
+        "size_bytes": 35,
+        "captured_bytes": 35,
+        "encoding": "utf8",
+        "text": "{\"amount\":\"80.00\",\"currency\":\"MXN\"}",
+        "truncated": false,
+        "omitted_reason": null
+      }
+    },
+    "flags": {
+      "has_error": true,
+      "panicked": false,
+      "truncated_request": false,
+      "truncated_response": false,
+      "streaming": false,
+      "dropped_events": 0
+    }
   }
 ]

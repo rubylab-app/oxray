@@ -23,7 +23,7 @@ async function shot(
 test("@visual empty", async ({ page }, testInfo) => {
   await prepare(page, testInfo);
   await page.goto("./");
-  await expect(page.getByText("Waiting for the first request…")).toBeVisible();
+  await expect(page.getByText("Oxray is running.")).toBeVisible();
   await shot(page, testInfo, "empty");
 });
 
@@ -76,6 +76,7 @@ test("@visual offline", async ({ page }, testInfo) => {
 
 test("@visual redacted", async ({ page }, testInfo) => {
   await openDetail(page, testInfo, "0193f2c4-7a1e-7c3d-9f42-6b1d2e8a51c7");
+  await page.getByRole("tab", { name: "Request", exact: true }).click();
   await expect(page.getByText("•••• 4242")).toBeVisible();
   await expect(
     page.getByText("redacted", { exact: true }).first(),

@@ -1,8 +1,10 @@
-import { ArrowLeft } from "lucide-preact";
+import { ArrowLeft, ChevronRight } from "lucide-preact";
 import { useState } from "preact/hooks";
 import { bodyNotice } from "./format/body";
 import { formatCount } from "./format/count";
 import { formatDuration } from "./format/duration";
+import { formatField } from "./format/fields";
+import { formatShare } from "./format/share";
 import { tokenizeSql } from "./format/sql";
 import { formatAbsolute, formatRelative } from "./format/time";
 import { JsonOrText } from "./json-view";
@@ -11,11 +13,18 @@ import type {
   Capture,
   Message,
   OutgoingCall,
-  QueryEntry,
+  Tab,
 } from "./model/capture";
-import { copyText, FieldList, RouteLabel, Section, StatusMark } from "./pieces";
-
-type Tab = "request" | "response" | "queries" | "outgoing" | "logs";
+import { initialTab, queryTotals } from "./model/capture";
+import {
+  copyText,
+  FieldList,
+  RedactedChip,
+  RouteLabel,
+  Section,
+  StatusMark,
+} from "./pieces";
+import { isFullyMasked, isMasked } from "./json/tree";
 
 export function RequestDetail(props: {
   phase: "idle" | "loading" | "slow" | "missing" | "error" | "ready";
@@ -92,7 +101,7 @@ function ReadyDetail(props: {
   listHref: string;
   onBack: () => void;
 }) {
-  const [tab, setTab] = useState<Tab>("request");
+  const [tab, setTab] = useState<Tab>(() => initialTab(props.capture));
   const capture = props.capture;
   const tabs: Array<{ id: Tab; label: string; count: number | null }> = [
     { id: "request", label: "Request", count: null },
@@ -216,7 +225,7 @@ function ReadyDetail(props: {
             <MessageView message={capture.response} query={null} />
           )
         ) : null}
-        {tab === "queries" ? <QueryList queries={capture.queries} /> : null}
+        {tab === "queries" ? <QueryList capture={capture} /> : null}
         {tab === "outgoing" ? <OutgoingList capture={capture} /> : null}
         {tab === "logs" ? <LogList capture={capture} /> : null}
       </div>
@@ -262,20 +271,18 @@ function BodyView(props: { body: BodyCapture }) {
 }
 
 function MessageView(props: { message: Message; query: string | null }) {
+  const params = props.query === null ? null : queryRows(props.query);
   return (
-    <div class="flex flex-col gap-5">
-      <Section title="Body">
+    <div class="flex flex-col gap-6">
+      <Section title="Body" count={null}>
         <BodyView body={props.message.body} />
       </Section>
-      {props.query === null ? null : (
-        <Section title="Query params">
-          <FieldList
-            rows={queryRows(props.query)}
-            empty="No query parameters"
-          />
+      {params === null ? null : (
+        <Section title="Query params" count={params.length}>
+          <FieldList rows={params} empty="No query parameters" />
         </Section>
       )}
-      <Section title="Headers">
+      <Section title="Headers" count={props.message.headers.length}>
         <FieldList
           rows={props.message.headers.map((header) => ({
             name: header.name,
@@ -298,13 +305,33 @@ function queryRows(query: string): Array<{ name: string; value: string }> {
   }));
 }
 
-function QueryList(props: { queries: QueryEntry[] }) {
-  if (props.queries.length === 0) {
+function QueryList(props: { capture: Capture }) {
+  const queries = props.capture.queries;
+  if (queries.length === 0) {
     return <p class="text-[13px] leading-[20px] text-text-3">No queries</p>;
   }
+  const totals = queryTotals(props.capture);
   return (
     <div class="flex flex-col gap-2">
-      {props.queries.map((query, index) => {
+      <p class="mb-2 text-[13px] leading-[20px] text-text-2">
+        <span class="font-mono text-text tabular-nums">
+          {formatCount(totals.count)}
+        </span>
+        {totals.count === 1 ? " query · " : " queries · "}
+        <span class="font-mono text-text tabular-nums">
+          {formatDuration(totals.totalUs)}
+        </span>
+        {totals.share === null ? null : (
+          <>
+            {" · "}
+            <span class="font-mono text-text tabular-nums">
+              {formatShare(totals.share)}
+            </span>
+            {" of the request"}
+          </>
+        )}
+      </p>
+      {queries.map((query, index) => {
         const rows = query.rows_returned ?? query.rows_affected;
         const rowText =
           rows === null
@@ -360,6 +387,12 @@ function OutgoingList(props: { capture: Capture }) {
                 setOpen(expanded ? null : index);
               }}
             >
+              <ChevronRight
+                size={16}
+                strokeWidth={1.5}
+                aria-hidden="true"
+                class={`shrink-0 text-text-3 ${expanded ? "rotate-90" : ""}`}
+              />
               <span class="font-mono text-[12px] leading-[16px] font-semibold text-text-2">
                 {call.method}
               </span>
@@ -372,15 +405,18 @@ function OutgoingList(props: { capture: Capture }) {
               </span>
             </button>
             {expanded ? (
-              <div class="flex flex-col gap-4 pt-3">
+              <div class="flex flex-col gap-6 pt-4 pb-2">
                 {call.error === null ? null : (
-                  <Section title="Error">
+                  <Section title="Error" count={null}>
                     <p class="font-mono text-[13px] leading-[20px] break-words text-text">
                       {call.error}
                     </p>
                   </Section>
                 )}
-                <Section title="Request headers">
+                <Section
+                  title="Request headers"
+                  count={call.request.headers.length}
+                >
                   <FieldList
                     rows={call.request.headers.map((header) => ({
                       name: header.name,
@@ -389,12 +425,15 @@ function OutgoingList(props: { capture: Capture }) {
                     empty="No headers"
                   />
                 </Section>
-                <Section title="Request body">
+                <Section title="Request body" count={null}>
                   <BodyView body={call.request.body} />
                 </Section>
                 {call.response === null ? null : (
                   <>
-                    <Section title="Response headers">
+                    <Section
+                      title="Response headers"
+                      count={call.response.headers.length}
+                    >
                       <FieldList
                         rows={call.response.headers.map((header) => ({
                           name: header.name,
@@ -403,7 +442,7 @@ function OutgoingList(props: { capture: Capture }) {
                         empty="No headers"
                       />
                     </Section>
-                    <Section title="Response body">
+                    <Section title="Response body" count={null}>
                       <BodyView body={call.response.body} />
                     </Section>
                   </>
@@ -430,65 +469,50 @@ function OutgoingStatus(props: { call: OutgoingCall }) {
 }
 
 function LogList(props: { capture: Capture }) {
-  const [open, setOpen] = useState<number | null>(null);
   if (props.capture.logs.length === 0) {
     return <p class="text-[13px] leading-[20px] text-text-3">No logs</p>;
   }
   return (
-    <div class="flex flex-col gap-3">
-      {props.capture.logs.map((entry, index) => {
-        const fields = Object.entries(entry.fields);
-        const expanded = open === index;
-        return (
-          <div key={`${entry.offset_us}-${index}`}>
-            <p class="flex flex-wrap items-baseline gap-x-2 text-[13px] leading-[20px]">
-              <span class={levelClass(entry.level)}>{entry.level}</span>
-              <span class="font-mono text-[12px] leading-[16px] text-text-3">
-                {entry.target}
-              </span>
-              <span class="text-text">{entry.message}</span>
-            </p>
-            {fields.length === 0 ? null : (
-              <button
-                type="button"
-                class="mt-1 text-[13px] leading-[20px] font-medium text-text-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                aria-expanded={expanded}
-                onClick={() => {
-                  setOpen(expanded ? null : index);
-                }}
-              >
-                {expanded ? "Hide fields" : "Show fields"}
-              </button>
-            )}
-            {expanded ? (
-              <div class="pt-2">
-                <FieldList
-                  rows={fields.map(([name, value]) => ({
-                    name,
-                    value: fieldText(value),
-                  }))}
-                  empty="No fields"
-                />
-              </div>
-            ) : null}
-          </div>
-        );
-      })}
+    <div class="flex flex-col gap-2">
+      {props.capture.logs.map((entry, index) => (
+        <div
+          key={`${entry.offset_us}-${index}`}
+          class="flex items-baseline gap-3 text-[13px] leading-[20px]"
+        >
+          <span class="w-20 shrink-0 text-right font-mono text-[12px] leading-[16px] text-text-3 tabular-nums">
+            +{formatDuration(entry.offset_us)}
+          </span>
+          <p class="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
+            <span class={levelClass(entry.level)}>{entry.level}</span>
+            <span class="font-mono text-[12px] leading-[16px] text-text-3">
+              {entry.target}
+            </span>
+            <span class="text-text">{entry.message}</span>
+            {Object.entries(entry.fields).map(([name, value]) => (
+              <LogField key={name} name={name} value={value} />
+            ))}
+          </p>
+        </div>
+      ))}
     </div>
   );
 }
 
-function fieldText(value: unknown): string {
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  if (value === null) {
-    return "empty";
-  }
-  return JSON.stringify(value) ?? "empty";
+function LogField(props: { name: string; value: unknown }) {
+  const masked = typeof props.value === "string" && isMasked(props.value);
+  return (
+    <span class="font-mono text-[12px] leading-[16px] break-all text-text-3">
+      {props.name}=
+      {typeof props.value === "string" && isFullyMasked(props.value) ? (
+        <RedactedChip spaced={false} />
+      ) : (
+        <>
+          {formatField(props.value)}
+          {masked ? <RedactedChip spaced /> : null}
+        </>
+      )}
+    </span>
+  );
 }
 
 function levelClass(level: string): string {

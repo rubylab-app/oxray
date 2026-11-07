@@ -14,7 +14,7 @@ test("dom lint covers the canonical screens", async ({ page }, testInfo) => {
   const problems: string[] = [];
 
   await page.goto("./");
-  await expect(page.getByText("Waiting for the first request…")).toBeVisible();
+  await expect(page.getByText("Oxray is running.")).toBeVisible();
   problems.push(...(await domLintProblems(page)));
 
   await installCaptures(page);

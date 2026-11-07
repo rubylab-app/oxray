@@ -1,20 +1,17 @@
 import { ArrowUpRight, Database, EyeOff, Scissors } from "lucide-preact";
 import type { ComponentType } from "preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { formatDuration } from "./format/duration";
 import { formatAbsolute, formatRelative } from "./format/time";
 import type { CaptureSummary } from "./model/capture";
-import { RouteLabel, StatusMark } from "./pieces";
+import { CopyButton, RouteLabel, StatusMark } from "./pieces";
 import { useRowVirtualizer } from "./virtual";
 
-const INSTALL = `.with(oxray.tracing_layer())
-.merge(oxray.router())
-.layer(oxray.layer());`;
-
 const rowGrid =
-  "grid h-8 w-full grid-cols-[56px_64px_minmax(160px,1fr)_88px_96px] content-center items-baseline gap-x-3 px-4 text-left @min-[680px]:grid-cols-[88px_56px_64px_minmax(160px,1fr)_88px_96px]";
+  "grid h-8 w-full grid-cols-[56px_64px_minmax(160px,1fr)_88px_80px] content-center items-baseline gap-x-3 px-4 text-left @min-[612px]:grid-cols-[72px_56px_64px_minmax(160px,1fr)_88px_80px]";
 
 const LOAD_AHEAD = 50;
+const ROW_HEIGHT = 32;
 const SKELETON_ROWS = 3;
 
 export function RequestList(props: {
@@ -50,17 +47,26 @@ export function RequestList(props: {
     );
   }
   if (props.phase === "empty") {
+    const command = `curl ${window.location.origin}/`;
     return (
       <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-auto px-4 py-6">
-        <pre class="overflow-auto rounded-[6px] border border-border bg-surface p-4 font-mono text-[13px] leading-[20px] text-text">
-          {INSTALL}
-        </pre>
-        <p class="flex items-center gap-2 text-[14px] leading-[20px] text-text-2">
+        <p class="flex items-center gap-2 text-[14px] leading-[20px] text-text">
           <span
-            class="inline-block size-1.5 rounded-full bg-text-3 motion-safe:animate-pulse motion-reduce:animate-none"
+            class="inline-block size-1.5 shrink-0 rounded-full bg-text-3 motion-safe:animate-pulse motion-reduce:animate-none"
             aria-hidden="true"
           />
-          Waiting for the first request…
+          Oxray is running. Send a request to this app and it shows up here.
+        </p>
+        <div class="flex items-center gap-2 rounded-[6px] border border-border bg-surface py-1 pr-1 pl-4">
+          <code class="min-w-0 flex-1 truncate font-mono text-[13px] leading-[20px] text-text">
+            {command}
+          </code>
+          <CopyButton value={command} what="command" quiet={false} class="" />
+        </div>
+        <p class="text-[13px] leading-[20px] text-text-3">
+          Nothing showing up?{" "}
+          <code class="font-mono text-text-2">.layer(oxray.layer())</code> must
+          be the last layer.
         </p>
       </div>
     );
@@ -94,27 +100,53 @@ function ReadyList(props: {
   );
   const rows = virtualizer.getVirtualItems();
   const lastRow = rows.at(-1)?.index ?? -1;
+  const firstId = props.items[0]?.id;
+  const shownFirst = useRef(firstId);
+  // New requests land on top. When the user has scrolled, keep the rows they
+  // are reading where they were.
+  useLayoutEffect(() => {
+    const before = shownFirst.current;
+    shownFirst.current = firstId;
+    const scroller = parentRef.current;
+    if (before === undefined || before === firstId || scroller === null) {
+      return;
+    }
+    if (scroller.scrollTop === 0) {
+      return;
+    }
+    const shift = props.items.findIndex((item) => item.id === before);
+    if (shift > 0) {
+      scroller.scrollTop += shift * ROW_HEIGHT;
+    }
+  }, [firstId, props.items]);
   useEffect(() => {
     if (props.hasMore && lastRow >= props.items.length - LOAD_AHEAD) {
       props.onNearEnd();
     }
   }, [props.hasMore, props.items.length, props.onNearEnd, lastRow]);
+  const activeIndex = useRef(props.active);
+  activeIndex.current = props.active;
+  const activeKey =
+    props.active === null ? null : (props.items[props.active]?.id ?? null);
+  // Rows landing on top move the selection's index, not the selection, so
+  // only a new selected capture scrolls the list or takes focus.
   useEffect(() => {
-    if (!props.focusRow || props.active === null) {
+    const index = activeIndex.current;
+    if (!props.focusRow || activeKey === null || index === null) {
       return;
     }
-    virtualizer.scrollToIndex(props.active, { align: "auto" });
+    virtualizer.scrollToIndex(index, { align: "auto" });
     const node = parentRef.current?.querySelector<HTMLElement>(
-      `[data-index="${props.active}"]`,
+      `[data-index="${index}"]`,
     );
-    node?.focus();
-  }, [props.focusRow, props.active, virtualizer]);
+    node?.focus({ preventScroll: true });
+  }, [props.focusRow, activeKey, virtualizer]);
   return (
     <div class="@container flex min-h-0 flex-1 flex-col">
       <div
         class={`${rowGrid} h-7 shrink-0 border-b border-border text-[12px] leading-[16px] text-text-3`}
       >
-        <span class="hidden @min-[680px]:block">Time</span>
+        <span class="hidden @min-[612px]:block">Time</span>
         <span>Status</span>
         <span>Method</span>
         <span>Route</span>
@@ -166,7 +198,7 @@ function ReadyList(props: {
                   />
                 ) : null}
                 <span
-                  class="hidden truncate font-mono text-[12px] leading-[16px] text-text-3 @min-[680px]:block"
+                  class="hidden truncate font-mono text-[12px] leading-[16px] text-text-3 @min-[612px]:block"
                   title={formatAbsolute(item.started_at)}
                 >
                   {formatRelative(item.started_at, props.nowMs)}

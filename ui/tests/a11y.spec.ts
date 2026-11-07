@@ -27,6 +27,7 @@ test("axe finds no serious or critical violations on a request", async ({
   await installTheme(page, testInfo);
   await installCaptures(page);
   await showCapture(page, "0193f2c4-7a1e-7c3d-9f42-6b1d2e8a51c7");
+  await page.getByRole("tab", { name: "Request", exact: true }).click();
   await expect(page.getByText("•••• 4242")).toBeVisible();
   await expectClean(page);
 });

@@ -121,13 +121,13 @@ export function App() {
   });
   const [offline, setOffline] = useState(false);
   const [detail, setDetail] = useState<DetailPhase>({ kind: "idle" });
-  const [active, setActive] = useState<number | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [focusRow, setFocusRow] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [toast, setToast] = useState<string | null>(null);
   const id = captureIdFromPath(pathname);
-  const view = useRef({ list, active, wide, id, offline });
-  view.current = { list, active, wide, id, offline };
+  const view = useRef({ list, activeId, wide, id, offline });
+  view.current = { list, activeId, wide, id, offline };
 
   useEffect(() => {
     apply(preference);
@@ -171,6 +171,21 @@ export function App() {
     }, 15_000);
     return () => {
       window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (
+        document.visibilityState === "visible" &&
+        view.current.list.kind === "ready"
+      ) {
+        setReloadToken((value) => value + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 
@@ -373,14 +388,10 @@ export function App() {
   }, [id, detailToken]);
 
   useEffect(() => {
-    if (list.kind !== "ready" || id === null) {
-      return;
+    if (id !== null) {
+      setActiveId(id);
     }
-    const index = list.items.findIndex((item) => item.id === id);
-    if (index >= 0) {
-      setActive(index);
-    }
-  }, [id, list]);
+  }, [id]);
 
   const shown = detailView(detail, id);
   const opened = id === null ? null : shown.capture;
@@ -457,7 +468,7 @@ export function App() {
     if (item === undefined) {
       return;
     }
-    setActive(index);
+    setActiveId(item.id);
     go(detailPath(item.id));
   }
 
@@ -466,7 +477,10 @@ export function App() {
     if (state.list.kind !== "ready" || state.list.items.length === 0) {
       return;
     }
-    const current = state.active ?? -1;
+    const current =
+      state.activeId === null
+        ? -1
+        : state.list.items.findIndex((item) => item.id === state.activeId);
     if (current < 0 && delta < 0) {
       return;
     }
@@ -476,7 +490,7 @@ export function App() {
     if (item === undefined) {
       return;
     }
-    setActive(next);
+    setActiveId(item.id);
     setFocusRow(true);
     if (state.wide) {
       go(detailPath(item.id));
@@ -537,7 +551,11 @@ export function App() {
           return;
         }
         event.preventDefault();
-        choose(state.active ?? 0);
+        const index =
+          state.list.kind === "ready" && state.activeId !== null
+            ? state.list.items.findIndex((item) => item.id === state.activeId)
+            : -1;
+        choose(Math.max(0, index));
       }
     };
     window.addEventListener("keydown", onKey);
@@ -551,6 +569,10 @@ export function App() {
       ? headline(list.kind === "ready" ? list.items : [], nowMs)
       : null;
   const more = list.kind === "ready" && list.cursor !== null;
+  const activeIndex =
+    list.kind === "ready" && activeId !== null
+      ? list.items.findIndex((item) => item.id === activeId)
+      : -1;
   const label = labels[preference];
   const Icon =
     preference === "dark" ? Moon : preference === "light" ? Sun : Monitor;
@@ -646,7 +668,7 @@ export function App() {
               }
               items={list.kind === "ready" ? list.items : []}
               hasMore={more}
-              active={active}
+              active={activeIndex >= 0 ? activeIndex : null}
               nowMs={nowMs}
               focusRow={focusRow}
               onChoose={(index) => {
@@ -664,7 +686,9 @@ export function App() {
             class="flex min-h-0 min-w-0 flex-1 flex-col"
           >
             <RequestDetail
-              phase={shown.phase}
+              phase={
+                list.kind === "empty" && id === null ? "loading" : shown.phase
+              }
               capture={shown.capture}
               nowMs={nowMs}
               single={!wide}

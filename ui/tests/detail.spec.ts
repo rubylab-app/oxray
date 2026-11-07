@@ -118,6 +118,7 @@ test("empty bodies and masked values say so once", async ({
   await expect(page.getByRole("tabpanel").getByText("No body")).toBeVisible();
   await showCapture(page, webhook);
   await expect(detailHeading(page)).toBeVisible();
+  await page.getByRole("tab", { name: "Request", exact: true }).click();
   await expect(page.getByText("[redacted]")).toHaveCount(0);
   await expect(
     page.getByText("redacted", { exact: true }).first(),
@@ -150,4 +151,69 @@ test("a single panel has a way back to the list", async ({
   await back.click();
   await expect(detailHeading(page)).toHaveCount(0);
   await expect(page.getByText("/webhooks/{psp}").first()).toBeVisible();
+});
+
+const panic = "0193f2c4-7a1e-7c3d-9f42-6b1d2e8a51cb";
+const payout = "0193f2c4-7a1e-7c3d-9f42-6b1d2e8a51cf";
+
+test("a failure opens on the tab that explains it", async ({
+  page,
+}, testInfo) => {
+  await installTheme(page, testInfo);
+  await installCaptures(page);
+  const expected: Array<[string, string]> = [
+    [webhook, "Response"],
+    [panic, "Response"],
+    [payout, "Logs"],
+    [order, "Request"],
+  ];
+  for (const [id, tab] of expected) {
+    await showCapture(page, id);
+    await expect(detailHeading(page)).toBeVisible();
+    await expect(page.getByRole("tab", { selected: true })).toContainText(tab);
+  }
+});
+
+test("section titles are small, bold and counted", async ({
+  page,
+}, testInfo) => {
+  await installTheme(page, testInfo);
+  await installCaptures(page);
+  await showCapture(page, refund);
+  const headers = page.getByRole("heading", { level: 2, name: /^Headers/ });
+  await expect(headers).toHaveText("Headers2");
+  await expect(headers).toHaveCSS("font-size", "13px");
+  await expect(headers).toHaveCSS("font-weight", "600");
+  await page.getByRole("tab", { name: /Outgoing/ }).click();
+  const call = page.getByRole("button", { name: /4011\/refunds/ });
+  const chevron = call.locator("svg").first();
+  await expect(chevron).not.toHaveClass(/rotate-90/);
+  await call.click();
+  await expect(chevron).toHaveClass(/rotate-90/);
+});
+
+test("queries say how much of the request they took", async ({
+  page,
+}, testInfo) => {
+  await installTheme(page, testInfo);
+  await installCaptures(page);
+  await showCapture(page, webhook);
+  await page.getByRole("tab", { name: /Queries/ }).click();
+  await expect(page.getByRole("tabpanel")).toContainText(
+    "4 queries · 1.4 ms · <1% of the request",
+  );
+});
+
+test("logs show their offset and fields inline", async ({ page }, testInfo) => {
+  await installTheme(page, testInfo);
+  await installCaptures(page);
+  await showCapture(page, payout);
+  const panel = page.getByRole("tabpanel");
+  await expect(panel).toContainText("+120 µs");
+  await expect(panel).toContainText("+29 ms");
+  await expect(panel.getByText('reason="insufficient funds"')).toBeVisible();
+  await expect(panel.getByText("ledger=main")).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Show fields" })).toHaveCount(
+    0,
+  );
 });

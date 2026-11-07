@@ -11,12 +11,13 @@ test("keyboard reaches the webhook and its queries", async ({
   await page.goto("/debug/oxray/");
   await expect(page.getByText("/webhooks/{psp}").first()).toBeVisible();
   await page.keyboard.press("Enter");
-  await expect(page.getByText("•••• 4242")).toBeVisible();
-  await expectClean(page);
-  await page.getByRole("tab", { name: "Request", exact: true }).focus();
-  await page.keyboard.press("ArrowRight");
   await expect(page.getByText("processor failed")).toBeVisible();
   await expectClean(page);
+  await page.getByRole("tab", { name: "Response", exact: true }).focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.getByText("•••• 4242")).toBeVisible();
+  await expectClean(page);
+  await page.keyboard.press("ArrowRight");
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("tab", { name: /Queries/ })).toBeFocused();
   await expect(
