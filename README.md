@@ -4,14 +4,14 @@ An X-ray for every request in your Axum app.
 
 Oxray is a process-local request inspector. For each request it keeps the exchange, the tracing events inside that request, the sqlx queries, and the outgoing calls made with its reqwest middleware, then serves a UI and a JSON API under a mount path. It is for someone building an Axum API on their own machine, especially one that takes webhooks, talks to other services, or handles payment-like payloads. It is not an APM, and it does not run in production: a release build does not record anything.
 
-The crate in this repository is version 0.1.0. It is not published to crates.io. There is no release tag to depend on. Point a path dependency at `crates/oxray` in a checkout:
+Add it from crates.io:
 
 ```toml oxray-install
 [dependencies]
 axum = "0.8"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "registry"] }
-oxray = { path = "../oxray/crates/oxray" }
+oxray = "0.1"
 ```
 
 Add the `reqwest` feature on `oxray`, plus `reqwest` and `reqwest-middleware`, only if you want outgoing calls recorded.
