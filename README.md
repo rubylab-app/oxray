@@ -106,13 +106,14 @@ These routes live under the mount:
 | --- | --- |
 | `GET /` and `GET /r/{id}` | The UI |
 | `GET /assets/*` | Hashed assets, and `theme-init.js` |
-| `GET /api/captures?cursor=&limit=` | Page of summaries. `limit` is clamped to 1..=500 and defaults to 100 |
+| `GET /api/captures?cursor=&limit=` | Page of summaries. `limit` is clamped to 1..=500 and defaults to 100. `failed=true`, `status=500` or `status=5xx`, and `after=<id>` narrow the page |
 | `GET /api/captures/{id}` | One capture, or 404 |
+| `GET /api/captures/{id}/markdown` | One capture as Markdown, or 404 |
 | `GET /api/meta` | Mode, store usage, and the redaction rule names |
 
-Oxray does not record requests to its own mount. On every other response it sets `X-Oxray-Id` to the capture id. `.response_header(false)` turns that header off.
+Oxray does not record requests to its own mount. On every other response it sets `x-oxray-id` to the capture id. `.response_header(false)` turns that header off.
 
-The UI is a list and a detail pane. The detail tabs in 0.1.0 are Request, Response, Queries, Outgoing, and Logs. While the list is empty it polls `GET /api/captures` every 2 seconds. After the first capture it stops polling; Refresh and the `r` key load it again. `j` / `k` move the selection, Enter opens it, Esc returns to the list when the width is a single column, and `t` cycles the theme. The choice is stored in `localStorage['oxray.theme']`.
+The UI is a list and a detail pane. The detail tabs in 0.1.0 are Request, Response, Queries, Outgoing, and Logs. While the list is empty it polls `GET /api/captures` every 2 seconds. After the first capture it stops polling; Refresh, the `r` key, and coming back to the tab load it again. `j` / `k` move the selection, Enter opens it, Esc returns to the list when the width is a single column, and `t` cycles the theme. The choice is stored in `localStorage['oxray.theme']`.
 
 ## What a capture holds
 
@@ -181,14 +182,14 @@ In tests: oxray.capture(&id) or oxray.latest_capture(), print capture.markdown()
 let response = app.clone().oneshot(request).await?;
 let status = response.status();
 let id = response.headers().get("x-oxray-id").unwrap().to_str()?.to_owned();
-let _body = axum::body::to_bytes(response.into_body(), usize::MAX).await?; // read the body first: the capture is stored now
+let _body = axum::body::to_bytes(response.into_body(), usize::MAX).await?; // the capture is stored once the body is read
 let capture = oxray.capture(&id).unwrap();
 assert_eq!(status, StatusCode::OK, "{}", capture.markdown());
 ```
 
 ## What 0.1.0 does not do
 
-No persistence across restarts, no live updates, no search, no staging mode, no MCP, no panic backtrace, no "copy as cURL" or copy-as-Markdown button, and no N+1 grouping in the list. Those are outside this version. The license is MIT OR Apache-2.0.
+No persistence across restarts, no live updates, no search, no staging mode, no MCP, no panic backtrace, no "copy as cURL" or copy-as-Markdown button, and no N+1 grouping in the list. Those are outside this version.
 
 ## Development
 
@@ -199,3 +200,7 @@ cargo xtask verify
 ```
 
 `oxray::format_duration` renders a `std::time::Duration` the way the UI does: `74 µs`, `1.2 ms`, `812 ms`, `1.24 s`, `1 min 4 s`.
+
+## License
+
+MIT OR Apache-2.0, at your option.
