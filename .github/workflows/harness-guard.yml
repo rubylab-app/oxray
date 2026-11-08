@@ -5,7 +5,7 @@ on:
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
 concurrency:
-  group: harness-guard-${{ github.workflow }}-${{ github.ref }}
+  group: harness-guard-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 permissions:
